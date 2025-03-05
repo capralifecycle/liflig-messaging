@@ -11,6 +11,7 @@ import no.liflig.logging.withLoggingContext
 import no.liflig.messaging.api.queue.Queue
 
 private val log = getLogger {}
+private const val POLLER_RETRY_TIMEOUT_SECONDS = 10L
 
 /**
  * Polls the given [Queue][no.liflig.messaging.queue.Queue] for messages, and passes them to the
@@ -25,10 +26,10 @@ private val log = getLogger {}
  * name if running multiple MessagePollers, to make debugging easier.
  */
 public class MessagePoller(
-    private val queue: Queue,
-    private val messageProcessor: MessageProcessor,
-    private val concurrentPollers: Int = 1,
-    private val name: String = "MessagePoller"
+  private val queue: Queue,
+  private val messageProcessor: MessageProcessor,
+  private val concurrentPollers: Int = 1,
+  private val name: String = "MessagePoller"
 ) {
   public fun start() {
     log.info { "Starting ${name}" }
@@ -38,8 +39,10 @@ public class MessagePoller(
         while (true) {
           try {
             poll()
+
           } catch (e: Exception) {
-            log.error(e) { "[${name}] Failed to poll messages. Retrying" }
+            log.error(e) { "[${name}] Failed to poll messages. Retrying in $POLLER_RETRY_TIMEOUT_SECONDS seconds." }
+            Thread.sleep(POLLER_RETRY_TIMEOUT_SECONDS * 1000)
           }
         }
       }
@@ -67,6 +70,7 @@ public class MessagePoller(
               log.info { "[${name}] Successfully processed message. Deleting from queue" }
               queue.delete(message)
             }
+
             is ProcessingResult.Failure -> {
               if (result.retry) {
                 log.warn(result.cause) {
