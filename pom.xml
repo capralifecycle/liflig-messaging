@@ -14,7 +14,7 @@
   <groupId>no.liflig</groupId>
   <artifactId>liflig-messaging</artifactId>
   <version>${revision}</version>
-  <packaging>jar</packaging>
+  <packaging>pom</packaging>
 
   <name>liflig-messaging</name>
   <description>
@@ -29,12 +29,21 @@
     </license>
   </licenses>
 
+  <modules>
+    <module>messaging-api</module>
+    <module>messaging-awssdk</module>
+    <module>messaging-sqs-lambda</module>
+  </modules>
+
   <organization>
     <name>Liflig</name>
     <url>https://liflig.no/</url>
   </organization>
 
   <properties>
+    <!-- To avoid deploying the parent. Must be overridden in submodules that should be deployed -->
+    <maven.deploy.skip>true</maven.deploy.skip>
+
     <major-version>0</major-version>
     <revision>${major-version}.local-SNAPSHOT</revision>
 
@@ -46,10 +55,6 @@
     <logback.version>1.5.17</logback.version>
     <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
     <liflig-logging.version>2.20250304.043602</liflig-logging.version>
-
-    <!-- Aws -->
-    <aws-sdk.version>2.29.14</aws-sdk.version>
-    <aws-lambda-events.version>3.14.0</aws-lambda-events.version>
 
     <!-- Serialization -->
     <kotlinx-serialization.version>1.8.0</kotlinx-serialization.version>
@@ -72,14 +77,23 @@
 
   <dependencyManagement>
     <dependencies>
-      <!-- AWS -->
+      <!--
+        We include all libraries here in dependencyManagement, so that consumers get the right versions of these when
+        including this parent POM as a POM dependency (otherwise consumers may have to specify these themselves).
+      -->
+
       <dependency>
-        <groupId>software.amazon.awssdk</groupId>
-        <artifactId>bom</artifactId>
-        <version>${aws-sdk.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
+        <groupId>no.liflig</groupId>
+        <artifactId>messaging-api</artifactId>
+        <version>${revision}</version>
       </dependency>
+
+      <dependency>
+        <groupId>no.liflig</groupId>
+        <artifactId>messaging-awssdk</artifactId>
+        <version>${revision}</version>
+      </dependency>
+
 
       <!-- Logging -->
       <dependency>
@@ -116,20 +130,6 @@
 
   <dependencies>
 
-    <!-- AWS -->
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>sqs</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>sns</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.amazonaws</groupId>
-      <artifactId>aws-lambda-java-events</artifactId>
-      <version>${aws-lambda-events.version}</version>
-    </dependency>
 
     <!-- Logging -->
     <dependency>
@@ -181,10 +181,10 @@
   </repositories>
 
   <distributionManagement>
-    <repository>
-      <id>github</id>
-      <url>https://maven.pkg.github.com/capralifecycle/liflig-messaging</url>
-    </repository>
+        <repository>
+          <id>github</id>
+          <url>https://maven.pkg.github.com/capralifecycle/liflig-messaging</url>
+        </repository>
   </distributionManagement>
 
   <build>
@@ -278,7 +278,9 @@
                 <banDuplicatePomDependencyVersions/>
                 <dependencyConvergence/>
                 <requireUpperBoundDeps/>
-                <banDynamicVersions/>
+                <banDynamicVersions>
+                  <allowSnapshots>true</allowSnapshots>
+                </banDynamicVersions>
               </rules>
             </configuration>
           </execution>

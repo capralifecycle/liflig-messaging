@@ -12,11 +12,11 @@ mvn clean install
 ## Lint code
 
 ```sh
-mvn ktlint:check
+mvn spottless:check
 ```
 
 ## Format code
 
 ```sh
-mvn ktlint:format
+mvn spottless:apply
 ```
