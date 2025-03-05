@@ -35,7 +35,7 @@
   </organization>
 
   <properties>
-    <major-version>2</major-version>
+    <major-version>0</major-version>
     <revision>${major-version}.local-SNAPSHOT</revision>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
