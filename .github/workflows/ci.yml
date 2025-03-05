@@ -1,0 +1,77 @@
+name: ci
+on:
+  push:
+    branches:
+      - "**"
+
+defaults:
+  run:
+    # NOTE: A bit stricter than the default bash options used by GitHub Actions
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4.7.0
+        with:
+          distribution: "zulu"
+          java-version: "21.0.5"
+          java-package: "jdk"
+
+      - uses: capralifecycle/actions-lib/check-runtime-dependencies@a6d9e4b11cdae620cc8e7fcc121de8466f6cfde9 # v1.6.0
+
+      - name: cache mvn
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: release preparation
+        id: prep
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          major_version="$(sed -n "s/^.*<major-version>\([0-9]\{1,\}\)<\/major-version>.*$/\1/p" pom.xml)"
+          echo "$major_version" | grep -q "^[0-9]\{1,\}$" || {
+            echo "ERROR: Failed to extract <major-version> from pom.xml"
+            exit 1
+          }
+          echo "major-version=$major_version" >> "$GITHUB_OUTPUT"
+
+      - uses: capralifecycle/actions-lib/generate-tag@a6d9e4b11cdae620cc8e7fcc121de8466f6cfde9 # v1.6.0
+        id: tag
+        with:
+          tag-prefix: "${{ steps.prep.outputs.major-version }}"
+          tag-type: "punctuated-timestamp-tag"
+
+      - name: resolve dependencies
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn -B dependency:resolve
+
+      - name: conditional release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SHARED_SONAR_TOKEN }}
+          CONDITIONAL_RELEASE: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+          TAG: "${{ steps.tag.outputs.tag }}"
+
+        run: |
+          if [ "$CONDITIONAL_RELEASE" = "true" ]; then
+            echo "Releasing library with tag '$TAG'"
+            # NOTE: Customize commands according to your project's needs, e.g.:
+            # mvn -B sonar:sonar sourceCjar deploy scm:tag -P gh-actions-build -DGIT_COMMIT_ID="$GITHUB_SHA" \
+            #   org.apache.maven.plugins:maven-enforcer-plugin:3.0.0-M3:enforce -Drules=requireReleaseDeps
+            mvn -B clean source:jar deploy scm:tag -Drevision="$TAG" -Dtag="$TAG" \
+              org.apache.maven.plugins:maven-enforcer-plugin:3.0.0-M3:enforce -Drules=requireReleaseDeps
+          else
+            mvn -B -U clean verify
+          fi
