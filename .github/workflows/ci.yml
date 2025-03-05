@@ -55,7 +55,9 @@ jobs:
       - name: resolve dependencies
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mvn -B dependency:resolve
+          TAG: "${{ steps.tag.outputs.tag }}"
+        # Needs to run compile first in order to resolve sibling dependencies, see https://stackoverflow.com/a/1905927
+        run: mvn -B -Drevision="$TAG" -Dtag="$TAG" compile dependency:resolve
 
       - name: conditional release
         env:
@@ -66,11 +68,11 @@ jobs:
 
         run: |
           if [ "$CONDITIONAL_RELEASE" = "true" ]; then
-            echo "Releasing library with tag '$TAG'"
+            echo "ve '$TAG'"
             # NOTE: Customize commands according to your project's needs, e.g.:
             # mvn -B sonar:sonar sourceCjar deploy scm:tag -P gh-actions-build -DGIT_COMMIT_ID="$GITHUB_SHA" \
             #   org.apache.maven.plugins:maven-enforcer-plugin:3.0.0-M3:enforce -Drules=requireReleaseDeps
-            mvn -B clean source:jar deploy scm:tag -Drevision="$TAG" -Dtag="$TAG" \
+            mvn -B source:jar deploy scm:tag -Drevision="$TAG" -Dtag="$TAG" \
               org.apache.maven.plugins:maven-enforcer-plugin:3.0.0-M3:enforce -Drules=requireReleaseDeps
           else
             mvn -B -U clean verify
