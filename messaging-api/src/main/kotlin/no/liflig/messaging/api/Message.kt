@@ -35,11 +35,10 @@ public data class Message(
      * message's visibility timeout (which we use for exponential backoff).
      */
     val receiptHandle: String? = null,
-
     /**
-     * When processing sqs messages from lambda event
-     * [com.amazonaws.services.lambda.runtime.events.SQSEvent.SQSMessage] we have access to the
-     * eventSource arn
+     * When processing SQS messages in AWS Lambda functions, AWS provides the event source ARN,
+     * which identifies the queue that sent to the Lambda. This is useful in some cases, so we set
+     * this field when using `liflig-messaging-sqs-lambda`.
      */
-    val eventSource: String? = null
+    val source: String? = null,
 )
