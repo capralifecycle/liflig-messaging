@@ -2,37 +2,35 @@
 
 package no.liflig.messaging.api
 
-import kotlin.collections.isNotEmpty
 import kotlin.concurrent.thread
+import no.liflig.logging.Logger
 import no.liflig.logging.field
 import no.liflig.logging.getLogger
 import no.liflig.logging.rawJsonField
 import no.liflig.logging.withLoggingContext
 import no.liflig.messaging.api.queue.Queue
 
-private val log = getLogger {}
-private const val POLLER_RETRY_TIMEOUT_SECONDS = 10L
-
 /**
  * Polls the given [Queue][no.liflig.messaging.queue.Queue] for messages, and passes them to the
  * given [MessageProcessor]. If processing succeeded, the message is deleted, otherwise we backoff
  * to retry later.
  *
- * Runs a number of threads equal to [concurrentPollers], which each continuously polls the queue
- * (in the SQS implementation, message polling waits for up to 20 seconds if there are no available
- * messages, so continuously polling is not a concern).
- *
- * [name] is used in logging and as the prefix for thread names. You should provide a more specific
- * name if running multiple MessagePollers, to make debugging easier.
+ * @param concurrentPollers Number of threads to spawn. Each thread continuously polls the queue (in
+ *   the SQS implementation, message polling waits for up to 20 seconds if there are no available
+ *   messages, so continuously polling is not a concern).
+ * @param name Used as a prefix for thread names, and if using [DefaultMessagePollerObserver], this
+ *   is included in the logs. If you're running multiple MessagePollers in your application, you
+ *   should provide a more specific name here, to make debugging easier.
  */
 public class MessagePoller(
     private val queue: Queue,
     private val messageProcessor: MessageProcessor,
     private val concurrentPollers: Int = 1,
-    private val name: String = "MessagePoller"
+    private val name: String = "MessagePoller",
+    private val observer: MessagePollerObserver = DefaultMessagePollerObserver(pollerName = name),
 ) {
   public fun start() {
-    log.info { "Starting ${name}" }
+    observer.onPollerStartup()
 
     for (i in 1..concurrentPollers) {
       thread(name = "${name}-${i}") {
@@ -40,9 +38,8 @@ public class MessagePoller(
           try {
             poll()
           } catch (e: Exception) {
-            log.error(e) {
-              "[${name}] Failed to poll messages. Retrying in $POLLER_RETRY_TIMEOUT_SECONDS seconds."
-            }
+            observer.onPollException(e)
+
             Thread.sleep(POLLER_RETRY_TIMEOUT_SECONDS * 1000)
           }
         }
@@ -52,10 +49,7 @@ public class MessagePoller(
 
   private fun poll() {
     val messages = queue.poll()
-
-    if (messages.isNotEmpty()) {
-      log.info { "[${name}] Received ${messages.size} messages from queue" }
-    }
+    observer.onPoll(messages)
 
     for (message in messages) {
       // Put message ID and body in logging context, so we can track logs for this message
@@ -64,34 +58,121 @@ public class MessagePoller(
           rawJsonField("queueMessage", message.body, validJson = queue.messagesAreValidJson),
       ) {
         try {
-          log.info { "[${name}] Processing message from queue" }
+          observer.onMessageProcessing(message)
 
           when (val result = messageProcessor.process(message)) {
             is ProcessingResult.Success -> {
-              log.info { "[${name}] Successfully processed message. Deleting from queue" }
+              observer.onMessageSuccess(message)
               queue.delete(message)
             }
+
             is ProcessingResult.Failure -> {
+              observer.onMessageFailure(message, result)
               if (result.retry) {
-                log.warn(result.cause) {
-                  "[${name}] Message processing failed. Will be retried from queue"
-                }
                 queue.retry(message)
               } else {
-                log.warn(result.cause) {
-                  "[${name}] Message processing failed, with retry disabled. Deleting message from queue"
-                }
                 queue.delete(message)
               }
             }
           }
         } catch (e: Exception) {
-          log.error(e) {
-            "[${name}] Message processing failed unexpectedly. Will be retried from queue"
-          }
+          observer.onMessageException(message, e)
           queue.retry(message)
         }
       }
+    }
+  }
+
+  internal companion object {
+    internal val logger = getLogger {}
+
+    private const val POLLER_RETRY_TIMEOUT_SECONDS = 10L
+  }
+}
+
+/**
+ * Interface for observing various events in [MessagePoller]'s polling loop.
+ *
+ * A default implementation is provided by [DefaultMessagePollerObserver], which uses
+ * `liflig-logging` to log descriptive messages for each of these events.
+ */
+public interface MessagePollerObserver {
+  /** Called when [MessagePoller] starts up. */
+  public fun onPollerStartup()
+
+  /** Called when [MessagePoller] polls messages from its queue. */
+  public fun onPoll(messages: List<Message>)
+
+  /** Called when an exception is thrown when [MessagePoller] polls from its queue. */
+  public fun onPollException(exception: Exception)
+
+  /**
+   * Called when [MessagePoller] starts processing a message, before passing it to the
+   * [MessageProcessor].
+   */
+  public fun onMessageProcessing(message: Message)
+
+  /** Called when a [MessageProcessor] returns [ProcessingResult.Success]. */
+  public fun onMessageSuccess(message: Message)
+
+  /** Called when a [MessageProcessor] returns [ProcessingResult.Failure]. */
+  public fun onMessageFailure(message: Message, result: ProcessingResult.Failure)
+
+  /** Called when a [MessageProcessor] throws an exception while processing a message. */
+  public fun onMessageException(message: Message, exception: Exception)
+}
+
+/**
+ * Default implementation of [MessagePollerObserver], using `liflig-logging` to log descriptive
+ * messages for the various events in [MessagePoller]'s polling loop.
+ */
+public open class DefaultMessagePollerObserver(
+    /** See [MessagePoller.name]. */
+    protected val pollerName: String = "MessagePoller",
+    /**
+     * Defaults to [MessagePoller]'s logger, so the logger name will show as:
+     * `no.liflig.messaging.MessagePoller`.
+     *
+     * If you want a different logger name, you can construct your own logger (using
+     * [no.liflig.logging.getLogger]) and pass it here.
+     */
+    protected val logger: Logger = MessagePoller.logger,
+) : MessagePollerObserver {
+  override fun onPollerStartup() {
+    logger.info { "Starting ${pollerName}" }
+  }
+
+  override fun onPoll(messages: List<Message>) {
+    if (messages.isNotEmpty()) {
+      logger.info { "[${pollerName}] Received ${messages.size} messages from queue" }
+    }
+  }
+
+  override fun onPollException(exception: Exception) {
+    logger.error(exception) { "[${pollerName}] Failed to poll messages. Retrying" }
+  }
+
+  override fun onMessageProcessing(message: Message) {
+    logger.info { "[${pollerName}] Processing message from queue" }
+  }
+
+  override fun onMessageSuccess(message: Message) {
+    logger.info { "[${pollerName}] Successfully processed message. Deleting from queue" }
+  }
+
+  override fun onMessageFailure(message: Message, result: ProcessingResult.Failure) {
+    logger.at(level = result.severity, cause = result.cause) {
+      if (result.retry) {
+        "[${pollerName}] Message processing failed. Will be retried from queue"
+      } else {
+        "[${pollerName}] Message processing failed, with retry disabled. Deleting message from queue"
+      }
+    }
+  }
+
+  override fun onMessageException(message: Message, exception: Exception) {
+    logger.error(exception) {
+      "[${pollerName}] Message processing failed unexpectedly. Will be retried from queue"
     }
   }
 }
