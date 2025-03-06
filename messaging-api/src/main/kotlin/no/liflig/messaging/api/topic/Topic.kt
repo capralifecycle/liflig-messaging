@@ -27,4 +27,4 @@ public class TopicPublishException(
     override val message: String,
     override val cause: Exception,
     logFields: List<LogField>,
-) : ExceptionWithLogFields()
+) : ExceptionWithLogFields(logFields)
