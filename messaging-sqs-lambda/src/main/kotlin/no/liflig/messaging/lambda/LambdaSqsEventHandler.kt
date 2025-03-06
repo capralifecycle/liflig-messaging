@@ -7,7 +7,9 @@ import no.liflig.logging.field
 import no.liflig.logging.getLogger
 import no.liflig.logging.rawJsonField
 import no.liflig.logging.withLoggingContext
+import no.liflig.messaging.api.DefaultMessagePollerObserver
 import no.liflig.messaging.api.Message
+import no.liflig.messaging.api.MessagePollerObserver
 import no.liflig.messaging.api.MessageProcessor
 import no.liflig.messaging.api.ProcessingResult
 
@@ -25,7 +27,7 @@ private val log = getLogger {}
  * ```ts
  * myLambda.addEventSource(
  *   new SqsEventSource(myQueue, {reportBatchItemFailures: true}),
- * ))
+ * )
  * ```
  *
  * The reason for doing this is to avoid duplicate message processing. The Lambda <-> SQS
@@ -62,38 +64,39 @@ private val log = getLogger {}
 public fun handleLambdaSqsEvent(
     sqsEvent: SQSEvent,
     messageProcessor: MessageProcessor,
-    messagesAreValidJson: Boolean = false
+    messagesAreValidJson: Boolean = false,
+    observer: MessagePollerObserver = DefaultMessagePollerObserver(pollerName = null, logger = log),
 ): SQSBatchResponse {
+  val messages = sqsEvent.records.map(::lambdaSqsMessageToInternalFormat)
   val failedMessages = mutableListOf<BatchItemFailure>()
 
-  log.info { "Received ${sqsEvent.records.size} messages from queue" }
+  observer.onPoll(messages)
 
-  for (message in sqsEvent.records) {
+  for (message in messages) {
     withLoggingContext(
-        field("queueMessageId", message.messageId),
+        field("queueMessageId", message.id),
         rawJsonField("queueMessage", message.body, validJson = messagesAreValidJson),
     ) {
       try {
-        log.info { "Processing message from queue" }
+        observer.onMessageProcessing(message)
 
-        when (val result = messageProcessor.process(message.toInternalFormat())) {
+        when (val result = messageProcessor.process(message)) {
           is ProcessingResult.Success -> {
-            log.info { "Successfully processed message. Deleting from queue" }
+            observer.onMessageSuccess(message)
+            // Do nothing here - not adding the message to failedMessages means it will be deleted
           }
           is ProcessingResult.Failure -> {
+            observer.onMessageFailure(message, result)
             if (result.retry) {
-              log.warn(result.cause) { "Message processing failed. Will be retried from queue" }
-              failedMessages.add(BatchItemFailure(message.messageId))
+              failedMessages.add(BatchItemFailure(message.id))
             } else {
-              log.warn(result.cause) {
-                "Message processing failed, with retry disabled. Deleting message from queue"
-              }
+              // Do nothing here - not adding the message to failedMessages means it will be deleted
             }
           }
         }
       } catch (e: Exception) {
-        log.error(e) { "Message processing failed unexpectedly. Will be retried from queue" }
-        failedMessages.add(BatchItemFailure(message.messageId))
+        observer.onMessageException(message, e)
+        failedMessages.add(BatchItemFailure(message.id))
       }
     }
   }
@@ -101,14 +104,14 @@ public fun handleLambdaSqsEvent(
   return SQSBatchResponse(failedMessages)
 }
 
-internal fun SQSEvent.SQSMessage.toInternalFormat(): Message {
+internal fun lambdaSqsMessageToInternalFormat(sqsMessage: SQSEvent.SQSMessage): Message {
   val customAttributes: Map<String, String> =
-      if (this.messageAttributes == null) {
+      if (sqsMessage.messageAttributes == null) {
         emptyMap()
       } else {
         // Set initial capacity to avoid reallocations
-        val map = HashMap<String, String>(this.messageAttributes.size)
-        for ((key, value) in this.messageAttributes) {
+        val map = HashMap<String, String>(sqsMessage.messageAttributes.size)
+        for ((key, value) in sqsMessage.messageAttributes) {
           when (value.dataType) {
             // Both String and Number data types in SQS use the StringValue field
             "String",
@@ -123,10 +126,11 @@ internal fun SQSEvent.SQSMessage.toInternalFormat(): Message {
       }
 
   return Message(
-      id = this.messageId,
-      body = this.body,
-      receiptHandle = this.receiptHandle,
-      systemAttributes = this.attributes ?: emptyMap(),
+      id = sqsMessage.messageId,
+      body = sqsMessage.body,
+      receiptHandle = sqsMessage.receiptHandle,
+      systemAttributes = sqsMessage.attributes ?: emptyMap(),
       customAttributes = customAttributes,
-      eventSource = this.eventSourceArn)
+      source = sqsMessage.eventSourceArn,
+  )
 }
