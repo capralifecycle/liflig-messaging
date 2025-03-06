@@ -7,7 +7,7 @@ asynchronously.
 Se respective readme files
 
 - [Messaging-awssdk](messaging-awssdk/README.md)
-- [Messaging-awssdk](messaging-sqs-lambda/README.md)
+- [Messaging-sqs-lambda](messaging-sqs-lambda/README.md)
 
 ## Build & Test
 
