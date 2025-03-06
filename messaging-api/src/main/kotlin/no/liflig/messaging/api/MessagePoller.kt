@@ -3,10 +3,10 @@
 package no.liflig.messaging.api
 
 import kotlin.concurrent.thread
+import kotlin.time.Duration.Companion.seconds
 import no.liflig.logging.Logger
 import no.liflig.logging.field
 import no.liflig.logging.getLogger
-import no.liflig.logging.rawJsonField
 import no.liflig.logging.withLoggingContext
 import no.liflig.messaging.api.queue.Queue
 
@@ -40,7 +40,7 @@ public class MessagePoller(
           } catch (e: Exception) {
             observer.onPollException(e)
 
-            Thread.sleep(POLLER_RETRY_TIMEOUT_SECONDS * 1000)
+            Thread.sleep(POLLER_RETRY_TIMEOUT.inWholeMilliseconds)
           }
         }
       }
@@ -53,10 +53,7 @@ public class MessagePoller(
 
     for (message in messages) {
       // Put message ID and body in logging context, so we can track logs for this message
-      withLoggingContext(
-          field("queueMessageId", message.id),
-          rawJsonField("queueMessage", message.body, validJson = queue.messagesAreValidJson),
-      ) {
+      withLoggingContext(field("queueMessageId", message.id)) {
         try {
           observer.onMessageProcessing(message)
 
@@ -65,7 +62,6 @@ public class MessagePoller(
               observer.onMessageSuccess(message)
               queue.delete(message)
             }
-
             is ProcessingResult.Failure -> {
               observer.onMessageFailure(message, result)
               if (result.retry) {
@@ -86,7 +82,7 @@ public class MessagePoller(
   internal companion object {
     internal val logger = getLogger {}
 
-    private const val POLLER_RETRY_TIMEOUT_SECONDS = 10L
+    private val POLLER_RETRY_TIMEOUT = 10.seconds
   }
 }
 
@@ -127,8 +123,11 @@ public interface MessagePollerObserver {
  * messages for the various events in [MessagePoller]'s polling loop.
  */
 public open class DefaultMessagePollerObserver(
-    /** See [MessagePoller.name]. */
-    protected val pollerName: String = "MessagePoller",
+    /**
+     * Will be added as a prefix to all logs, to distinguish between different `MessagePoller`s. If
+     * passing `null` here, no prefix will be added.
+     */
+    pollerName: String? = "MessagePoller",
     /**
      * Defaults to [MessagePoller]'s logger, so the logger name will show as:
      * `no.liflig.messaging.MessagePoller`.
@@ -138,41 +137,43 @@ public open class DefaultMessagePollerObserver(
      */
     protected val logger: Logger = MessagePoller.logger,
 ) : MessagePollerObserver {
+  private val logPrefix = if (pollerName != null) "[${pollerName}] " else ""
+
   override fun onPollerStartup() {
-    logger.info { "Starting ${pollerName}" }
+    logger.info { "${logPrefix}Starting polling" }
   }
 
   override fun onPoll(messages: List<Message>) {
     if (messages.isNotEmpty()) {
-      logger.info { "[${pollerName}] Received ${messages.size} messages from queue" }
+      logger.info { "${logPrefix}Received ${messages.size} messages from queue" }
     }
   }
 
   override fun onPollException(exception: Exception) {
-    logger.error(exception) { "[${pollerName}] Failed to poll messages. Retrying" }
+    logger.error(exception) { "${logPrefix}Failed to poll messages. Retrying" }
   }
 
   override fun onMessageProcessing(message: Message) {
-    logger.info { "[${pollerName}] Processing message from queue" }
+    logger.info { "${logPrefix}Processing message from queue" }
   }
 
   override fun onMessageSuccess(message: Message) {
-    logger.info { "[${pollerName}] Successfully processed message. Deleting from queue" }
+    logger.info { "${logPrefix}Successfully processed message. Deleting from queue" }
   }
 
   override fun onMessageFailure(message: Message, result: ProcessingResult.Failure) {
     logger.at(level = result.severity, cause = result.cause) {
       if (result.retry) {
-        "[${pollerName}] Message processing failed. Will be retried from queue"
+        "${logPrefix}Message processing failed. Will be retried from queue"
       } else {
-        "[${pollerName}] Message processing failed, with retry disabled. Deleting message from queue"
+        "${logPrefix}Message processing failed, with retry disabled. Deleting message from queue"
       }
     }
   }
 
   override fun onMessageException(message: Message, exception: Exception) {
     logger.error(exception) {
-      "[${pollerName}] Message processing failed unexpectedly. Will be retried from queue"
+      "${logPrefix}Message processing failed unexpectedly. Will be retried from queue"
     }
   }
 }
