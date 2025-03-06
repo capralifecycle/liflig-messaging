@@ -3,7 +3,6 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-
   <parent>
     <groupId>no.liflig</groupId>
     <artifactId>liflig-messaging</artifactId>
@@ -11,42 +10,25 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>messaging-awssdk</artifactId>
+
+  <artifactId>liflig-messaging-sqs-lambda</artifactId>
 
   <properties>
     <maven.deploy.skip>false</maven.deploy.skip>
 
-    <!--    AWS-->
-    <aws-sdk.version>2.29.14</aws-sdk.version>
+    <!-- Aws -->
+    <aws-lambda-events.version>3.14.0</aws-lambda-events.version>
   </properties>
-
-  <dependencyManagement>
-    <dependencies>
-      <!-- AWS -->
-      <dependency>
-        <groupId>software.amazon.awssdk</groupId>
-        <artifactId>bom</artifactId>
-        <version>${aws-sdk.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
 
   <dependencies>
     <dependency>
       <groupId>no.liflig</groupId>
-      <artifactId>messaging-api</artifactId>
-    </dependency>
-
-    <!-- AWS -->
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>sqs</artifactId>
+      <artifactId>liflig-messaging-api</artifactId>
     </dependency>
     <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>sns</artifactId>
+      <groupId>com.amazonaws</groupId>
+      <artifactId>aws-lambda-java-events</artifactId>
+      <version>${aws-lambda-events.version}</version>
     </dependency>
   </dependencies>
 </project>

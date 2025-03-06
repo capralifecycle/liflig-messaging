@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
@@ -18,7 +18,8 @@
 
   <name>liflig-messaging</name>
   <description>
-    Logging library for Kotlin JVM, that thinly wraps SLF4J and Logback to provide a more ergonomic API.
+    Provides a message poller, a queue service, and a message processor interface for applications
+    that process events asynchronously.
   </description>
 
   <licenses>
@@ -30,9 +31,9 @@
   </licenses>
 
   <modules>
-    <module>messaging-api</module>
-    <module>messaging-awssdk</module>
-    <module>messaging-sqs-lambda</module>
+    <module>liflig-messaging-api</module>
+    <module>liflig-messaging-awssdk</module>
+    <module>liflig-messaging-sqs-lambda</module>
   </modules>
 
   <organization>
@@ -84,13 +85,13 @@
 
       <dependency>
         <groupId>no.liflig</groupId>
-        <artifactId>messaging-api</artifactId>
+        <artifactId>liflig-messaging-api</artifactId>
         <version>${revision}</version>
       </dependency>
 
       <dependency>
         <groupId>no.liflig</groupId>
-        <artifactId>messaging-awssdk</artifactId>
+        <artifactId>liflig-messaging-awssdk</artifactId>
         <version>${revision}</version>
       </dependency>
 
@@ -167,7 +168,9 @@
   </dependencies>
 
   <scm>
-    <developerConnection>scm:git:https://github.com/capralifecycle/liflig-messaging.git</developerConnection>
+    <developerConnection>
+      scm:git:https://github.com/capralifecycle/liflig-messaging.git
+    </developerConnection>
     <connection>scm:git:https://github.com/capralifecycle/liflig-messaging.git</connection>
     <url>https://github.com/capralifecycle/liflig-messaging</url>
     <tag>HEAD</tag>
@@ -181,10 +184,10 @@
   </repositories>
 
   <distributionManagement>
-        <repository>
-          <id>github</id>
-          <url>https://maven.pkg.github.com/capralifecycle/liflig-messaging</url>
-        </repository>
+    <repository>
+      <id>github</id>
+      <url>https://maven.pkg.github.com/capralifecycle/liflig-messaging</url>
+    </repository>
   </distributionManagement>
 
   <build>
