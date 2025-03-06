@@ -1,9 +1,9 @@
-package no.liflig.messaging.api.queue
+package no.liflig.messaging.queue
 
 import java.time.Duration
 import no.liflig.logging.ExceptionWithLogFields
 import no.liflig.logging.LogField
-import no.liflig.messaging.api.Message
+import no.liflig.messaging.Message
 
 /**
  * A message queue that you can send messages to or poll messages from.
@@ -70,7 +70,7 @@ public interface Queue {
  *
  * @param message Note that this is the exception message, not the queue message. The queue message
  *   is included in [logFields], logged when the exception is passed to `liflig-logging`.
- * @param logFields See [no.liflig.logging.ExceptionWithLogFields].
+ * @param logFields See [ExceptionWithLogFields].
  */
 public class MessageSendingException(
     override val message: String,

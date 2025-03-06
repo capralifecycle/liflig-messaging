@@ -1,7 +1,7 @@
-package no.liflig.messaging.api.backoff
+package no.liflig.messaging.backoff
 
 import io.kotest.matchers.shouldBe
-import no.liflig.messaging.api.backoff.BackoffService.Companion.getNextVisibilityTimeout
+import no.liflig.messaging.backoff.BackoffService.Companion.getNextVisibilityTimeout
 import org.junit.jupiter.api.Test
 
 internal class SqsBackoffServiceTest {

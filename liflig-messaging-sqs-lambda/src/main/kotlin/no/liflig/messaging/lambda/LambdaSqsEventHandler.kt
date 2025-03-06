@@ -7,11 +7,11 @@ import no.liflig.logging.field
 import no.liflig.logging.getLogger
 import no.liflig.logging.rawJsonField
 import no.liflig.logging.withLoggingContext
-import no.liflig.messaging.api.DefaultMessagePollerObserver
-import no.liflig.messaging.api.Message
-import no.liflig.messaging.api.MessagePollerObserver
-import no.liflig.messaging.api.MessageProcessor
-import no.liflig.messaging.api.ProcessingResult
+import no.liflig.messaging.DefaultMessagePollerObserver
+import no.liflig.messaging.Message
+import no.liflig.messaging.MessagePollerObserver
+import no.liflig.messaging.MessageProcessor
+import no.liflig.messaging.ProcessingResult
 
 private val log = getLogger {}
 

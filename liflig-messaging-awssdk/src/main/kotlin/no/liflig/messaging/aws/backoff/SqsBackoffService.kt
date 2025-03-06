@@ -1,10 +1,10 @@
 package no.liflig.messaging.aws.backoff
 
 import no.liflig.logging.getLogger
-import no.liflig.messaging.api.Message
-import no.liflig.messaging.api.backoff.BackoffConfig
-import no.liflig.messaging.api.backoff.BackoffService
-import no.liflig.messaging.api.backoff.BackoffService.Companion.getNextVisibilityTimeout
+import no.liflig.messaging.Message
+import no.liflig.messaging.backoff.BackoffConfig
+import no.liflig.messaging.backoff.BackoffService
+import no.liflig.messaging.backoff.BackoffService.Companion.getNextVisibilityTimeout
 import software.amazon.awssdk.services.sqs.SqsClient
 import software.amazon.awssdk.services.sqs.model.ChangeMessageVisibilityRequest
 import software.amazon.awssdk.services.sqs.model.MessageSystemAttributeName

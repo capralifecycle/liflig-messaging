@@ -1,4 +1,4 @@
-package no.liflig.messaging.api.backoff
+package no.liflig.messaging.backoff
 
 /** A config used for configuring backoff from a queue */
 public data class BackoffConfig(

@@ -6,11 +6,11 @@ import java.time.Duration
 import no.liflig.logging.field
 import no.liflig.logging.getLogger
 import no.liflig.logging.rawJsonField
-import no.liflig.messaging.api.Message
-import no.liflig.messaging.api.backoff.BackoffConfig
-import no.liflig.messaging.api.queue.MessageSendingException
-import no.liflig.messaging.api.queue.Queue
+import no.liflig.messaging.Message
 import no.liflig.messaging.aws.backoff.SqsBackoffService
+import no.liflig.messaging.backoff.BackoffConfig
+import no.liflig.messaging.queue.MessageSendingException
+import no.liflig.messaging.queue.Queue
 import software.amazon.awssdk.services.sqs.SqsClient
 import software.amazon.awssdk.services.sqs.model.Message as SQSMessage
 import software.amazon.awssdk.services.sqs.model.MessageAttributeValue

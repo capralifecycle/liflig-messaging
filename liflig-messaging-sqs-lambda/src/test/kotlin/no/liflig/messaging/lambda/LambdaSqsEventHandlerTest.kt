@@ -7,9 +7,9 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import java.util.UUID
-import no.liflig.messaging.api.Message
-import no.liflig.messaging.api.MessageProcessor
-import no.liflig.messaging.api.ProcessingResult
+import no.liflig.messaging.Message
+import no.liflig.messaging.MessageProcessor
+import no.liflig.messaging.ProcessingResult
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 

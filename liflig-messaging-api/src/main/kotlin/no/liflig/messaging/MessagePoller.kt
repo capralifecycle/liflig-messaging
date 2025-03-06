@@ -1,6 +1,6 @@
 @file:Suppress("unused") // This is a library
 
-package no.liflig.messaging.api
+package no.liflig.messaging
 
 import kotlin.concurrent.thread
 import kotlin.time.Duration.Companion.seconds
@@ -8,7 +8,7 @@ import no.liflig.logging.Logger
 import no.liflig.logging.field
 import no.liflig.logging.getLogger
 import no.liflig.logging.withLoggingContext
-import no.liflig.messaging.api.queue.Queue
+import no.liflig.messaging.queue.Queue
 
 /**
  * Polls the given [Queue][no.liflig.messaging.queue.Queue] for messages, and passes them to the
@@ -132,8 +132,8 @@ public open class DefaultMessagePollerObserver(
      * Defaults to [MessagePoller]'s logger, so the logger name will show as:
      * `no.liflig.messaging.MessagePoller`.
      *
-     * If you want a different logger name, you can construct your own logger (using
-     * [no.liflig.logging.getLogger]) and pass it here.
+     * If you want a different logger name, you can construct your own logger (using [getLogger])
+     * and pass it here.
      */
     protected val logger: Logger = MessagePoller.logger,
 ) : MessagePollerObserver {

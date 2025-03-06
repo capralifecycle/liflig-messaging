@@ -1,13 +1,13 @@
 @file:Suppress("unused", "MemberVisibilityCanBePrivate") // This is a library
 
-package no.liflig.messaging.api.queue
+package no.liflig.messaging.queue
 
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
-import no.liflig.messaging.api.Message
+import no.liflig.messaging.Message
 
 /**
  * Mock implementation of [Queue] for tests and local development. There are generally two types of

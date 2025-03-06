@@ -1,4 +1,4 @@
-package no.liflig.messaging.api
+package no.liflig.messaging
 
 public data class Message(
     val id: String,

@@ -21,7 +21,7 @@ public interface Topic {
  *
  * @param message Note that this is the exception message, not the published message. The published
  *   message is included in [logFields], logged when the exception is passed to `liflig-logging`.
- * @param logFields See [no.liflig.logging.ExceptionWithLogFields].
+ * @param logFields See [ExceptionWithLogFields].
  */
 public class TopicPublishException(
     override val message: String,

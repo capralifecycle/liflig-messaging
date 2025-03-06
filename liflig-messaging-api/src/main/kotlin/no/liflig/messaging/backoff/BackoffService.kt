@@ -1,7 +1,7 @@
-package no.liflig.messaging.api.backoff
+package no.liflig.messaging.backoff
 
 import java.math.BigDecimal
-import no.liflig.messaging.api.Message
+import no.liflig.messaging.Message
 
 public interface BackoffService {
   public fun increaseVisibilityTimeout(message: Message, queueUrl: String)
