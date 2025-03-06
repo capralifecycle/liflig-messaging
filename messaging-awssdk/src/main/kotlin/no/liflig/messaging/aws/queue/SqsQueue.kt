@@ -114,7 +114,7 @@ public class SqsQueue(
             .maxNumberOfMessages(10)
             .build()
 
-    return sqsClient.receiveMessage(receiveRequest).messages().map { it.toInternalFormat() }
+    return sqsClient.receiveMessage(receiveRequest).messages().map(::sqsMessageToInternalFormat)
   }
 
   override fun retry(message: Message) {
@@ -122,14 +122,14 @@ public class SqsQueue(
   }
 }
 
-internal fun SQSMessage.toInternalFormat(): Message {
+internal fun sqsMessageToInternalFormat(sqsMessage: SQSMessage): Message {
   val customAttributes =
-      if (!this.hasMessageAttributes()) {
+      if (!sqsMessage.hasMessageAttributes()) {
         emptyMap()
       } else {
         // Set initial capacity to avoid reallocations
-        val map = HashMap<String, String>(this.messageAttributes().size)
-        for ((key, value) in this.messageAttributes()) {
+        val map = HashMap<String, String>(sqsMessage.messageAttributes().size)
+        for ((key, value) in sqsMessage.messageAttributes()) {
           when (value.dataType()) {
             // Both String and Number data types in SQS use the StringValue field
             "String",
@@ -144,10 +144,10 @@ internal fun SQSMessage.toInternalFormat(): Message {
       }
 
   return Message(
-      id = this.messageId(),
-      body = this.body(),
-      receiptHandle = this.receiptHandle(),
-      systemAttributes = this.attributesAsStrings(),
+      id = sqsMessage.messageId(),
+      body = sqsMessage.body(),
+      receiptHandle = sqsMessage.receiptHandle(),
+      systemAttributes = sqsMessage.attributesAsStrings() ?: emptyMap(),
       customAttributes = customAttributes,
   )
 }
