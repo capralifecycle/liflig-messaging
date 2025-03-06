@@ -1,4 +1,4 @@
-package no.liflig.messaging.aws.backoff
+package no.liflig.messaging.awssdk.backoff
 
 import no.liflig.logging.getLogger
 import no.liflig.messaging.Message

@@ -1,6 +1,6 @@
 @file:Suppress("unused") // This is a library
 
-package no.liflig.messaging.aws.topic
+package no.liflig.messaging.awssdk.topic
 
 import no.liflig.logging.field
 import no.liflig.logging.getLogger

@@ -1,13 +1,13 @@
 @file:Suppress("unused") // This is a library
 
-package no.liflig.messaging.aws.queue
+package no.liflig.messaging.awssdk.queue
 
 import java.time.Duration
 import no.liflig.logging.field
 import no.liflig.logging.getLogger
 import no.liflig.logging.rawJsonField
 import no.liflig.messaging.Message
-import no.liflig.messaging.aws.backoff.SqsBackoffService
+import no.liflig.messaging.awssdk.backoff.SqsBackoffService
 import no.liflig.messaging.backoff.BackoffConfig
 import no.liflig.messaging.queue.MessageSendingException
 import no.liflig.messaging.queue.Queue

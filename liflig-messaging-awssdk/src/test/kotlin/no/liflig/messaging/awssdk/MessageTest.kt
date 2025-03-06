@@ -1,7 +1,7 @@
-package no.liflig.messaging.aws
+package no.liflig.messaging.awssdk
 
 import io.kotest.matchers.shouldBe
-import no.liflig.messaging.aws.queue.toInternalFormat
+import no.liflig.messaging.awssdk.queue.toInternalFormat
 import no.liflig.messaging.testutils.readResourcesFileAsText
 import org.junit.jupiter.api.Test
 import software.amazon.awssdk.services.sqs.model.Message
