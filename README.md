@@ -3,6 +3,12 @@
 Provides a queue service, a message poller and a message processor interface for applications that process events
 asynchronously.
 
+## Usage
+Se respective readme files
+
+- [Messaging-awssdk](messaging-awssdk/README.md)
+- [Messaging-awssdk](messaging-sqs-lambda/README.md)
+
 ## Build & Test
 
 ```sh
