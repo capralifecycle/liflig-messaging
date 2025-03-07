@@ -7,7 +7,7 @@ import no.liflig.logging.LogField
  * A message topic (a.k.a. event bus) that producers can publish messages to.
  *
  * This library provides 2 implementations:
- * - [SnsTopic] for AWS SNS (Simple Notification Service)
+ * - `SnsTopic` from the `liflig-messaging-awssdk` module, for AWS SNS (Simple Notification Service)
  * - [MockTopic] for tests
  */
 public interface Topic {

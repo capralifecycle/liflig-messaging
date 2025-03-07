@@ -9,7 +9,7 @@ import no.liflig.messaging.Message
  * A message queue that you can send messages to or poll messages from.
  *
  * This library provides 2 implementations:
- * - [SqsQueue] for AWS SQS (Simple Queue Service)
+ * - `SqsQueue` from the `liflig-messaging-awssdk` module, for AWS SQS (Simple Queue Service)
  * - [MockQueue] for tests
  */
 public interface Queue {
@@ -30,8 +30,8 @@ public interface Queue {
   /**
    * Polls the queue for available messages.
    *
-   * The implementation in [SqsQueue.poll] polls messages for up to 20 seconds, or until it's
-   * received 10 messages, whichever comes first.
+   * The implementation in `SqsQueue.poll` (from `liflig-messaging-awssdk`) polls messages for up to
+   * 20 seconds, or until it's received 10 messages, whichever comes first.
    */
   public fun poll(): List<Message>
 
@@ -44,7 +44,7 @@ public interface Queue {
   /**
    * Pushes the message back to the queue, typically because processing failed.
    *
-   * The implementation in [SqsQueue.retry] increases the message's
+   * The implementation in `SqsQueue.retry` (from `liflig-messaging-awssdk`) increases the message's
    * [visibility timeout](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html)
    * to do exponential backoff.
    */
