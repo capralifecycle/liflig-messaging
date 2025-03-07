@@ -18,8 +18,8 @@
 
   <name>liflig-messaging</name>
   <description>
-    Provides a message poller, a queue service, and a message processor interface for applications
-    that process events asynchronously.
+    Provides message queue and topic services, a message poller, and a message processor interface
+    for applications that process events asynchronously.
   </description>
 
   <licenses>

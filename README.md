@@ -1,6 +1,6 @@
 # liflig-messaging
 
-Provides a message poller, message queue and topic services, and a message processor interface for
+Provides message queue and topic services, a message poller, and a message processor interface for
 applications that process events asynchronously.
 
 The library is split into modules:
@@ -10,8 +10,8 @@ The library is split into modules:
 - `liflig-messaging-awssdk` implements the `Queue` interface for AWS SQS and the `Topic` interface
   for AWS SNS, using the AWS SDK.
 - `liflig-messaging-sqs-lambda` provides a function for processing messages in AWS Lambda functions
-  that use SQS as the event source. It provides better failure handling for individual messages in
-  a batch, and allows you to use the same `MessageProcessor` interface as in long-running services.
+  that use SQS as the event source. It improves failure handling for individual messages in a batch,
+  and allows you to use the same `MessageProcessor` interface as in long-running services.
 
 **Contents:**
 
@@ -57,9 +57,9 @@ AWS Lambda function.
 #### Long-running services
 
 For a long-running service, you'll use `MessagePoller`. You pass your `MessageProcessor` to its
-constructor, and call `poller.start()` on application start-up. You also have to pass a `Queue`
-implementation - if you use `liflig-messaging-awssdk`, you can use the `SqsQueue` implementation
-for AWS SQS (Simple Queue Service).
+constructor, and call `messagePoller.start()` on application start-up. You also have to pass a
+`Queue` implementation - if you use `liflig-messaging-awssdk`, you can use the `SqsQueue`
+implementation for AWS SQS (Simple Queue Service).
 
 ```kotlin
 import no.liflig.messaging.MessagePoller
@@ -107,7 +107,7 @@ class LambdaHandler(
 
 > [!IMPORTANT]
 >
-> In order for `handleLambdaSqsEvent` to work correctly, your handler method must return an
+> In order for `handleLambdaSqsEvent` to work correctly, your handler method must return
 > `SQSBatchResponse`. And in order for that to work, you have to configure batch item failures on
 > your Lambda <-> SQS integration. In AWS CDK, you do this on the `SqsEventSource`:
 > ```ts
