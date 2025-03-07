@@ -13,7 +13,7 @@ public interface QueueObserver {
   public fun onSendException(exception: Throwable, messageBody: String): Nothing
 }
 
-public class DefaultQueueObserver(
+public open class DefaultQueueObserver(
     private val queueName: String = "queue",
     private val queueUrl: String? = null,
     private val logger: Logger = Queue.logger,
