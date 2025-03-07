@@ -27,6 +27,19 @@ public interface QueueObserver {
    * [DefaultQueueObserver.onSendException] wraps the exception in [MessageSendingException].
    */
   public fun onSendException(exception: Throwable, messageBody: String): Nothing
+
+  /**
+   * [DefaultMessagePollerObserver][no.liflig.messaging.DefaultMessagePollerObserver] wants to know
+   * the [MessageLoggingMode][no.liflig.messaging.MessageLoggingMode] of the poller's queue, to use
+   * the same mode for its own logging. We therefore expose this optional logging mode property here
+   * on the queue observer interface, overriding it in [DefaultQueueObserver] to point to its actual
+   * logging mode.
+   *
+   * If you implement a custom `QueueObserver`, you should consider overriding this property if your
+   * implementation controls how message bodies are logged.
+   */
+  public val loggingMode: MessageLoggingMode?
+    get() = null
 }
 
 /**
@@ -46,7 +59,7 @@ public open class DefaultQueueObserver(
     protected val queueName: String = "queue",
     protected val queueUrl: String? = null,
     protected val logger: Logger = Queue.logger,
-    protected val loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
+    override val loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
 ) : QueueObserver {
   override fun onSendSuccess(messageId: String, messageBody: String) {
     logger.info {

@@ -26,7 +26,11 @@ public class MessagePoller(
     private val messageProcessor: MessageProcessor,
     private val concurrentPollers: Int = 1,
     private val name: String = "MessagePoller",
-    private val observer: MessagePollerObserver = DefaultMessagePollerObserver(pollerName = name),
+    private val observer: MessagePollerObserver =
+        DefaultMessagePollerObserver(
+            pollerName = name,
+            loggingMode = queue.observer?.loggingMode ?: MessageLoggingMode.JSON,
+        ),
 ) {
   public fun start() {
     observer.onPollerStartup()

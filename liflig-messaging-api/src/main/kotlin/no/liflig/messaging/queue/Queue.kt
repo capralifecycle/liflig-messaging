@@ -52,17 +52,17 @@ public interface Queue {
   public fun retry(message: Message)
 
   /**
-   * We log outgoing message bodies in [send], and incoming message bodies in
-   * [MessagePoller][no.liflig.messaging.MessagePoller]. We want to log these as raw JSON to enable
-   * log analysis with CloudWatch. But we can't necessarily trust that the body is valid JSON,
-   * because it may originate from some third party - and logging it as raw JSON in that case would
-   * break our logs. But if this is an internal-only queue where we know the bodies are valid JSON,
-   * we can set this flag to true to avoid having to validate the body.
+   * [DefaultMessagePollerObserver][no.liflig.messaging.DefaultMessagePollerObserver] wants to know
+   * the [MessageLoggingMode][no.liflig.messaging.MessageLoggingMode] of the poller's queue, to use
+   * the same mode for its own logging. This info lies on the queue's observer. We therefore expose
+   * an optional observer property here on the `Queue` interface, overriding it in `SqsQueue` to
+   * point to its actual observer.
    *
-   * We place this on the interface, so that `MessagePoller` also can use it.
+   * If you implement a custom `Queue`, you should consider overriding this property if your
+   * implementation uses a `QueueObserver`.
    */
-  public val messagesAreValidJson: Boolean
-    get() = false
+  public val observer: QueueObserver?
+    get() = null
 
   public companion object {
     internal val logger = getLogger {}

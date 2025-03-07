@@ -2,6 +2,7 @@ package no.liflig.messaging.awssdk.queue
 
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
+import no.liflig.messaging.MessageLoggingMode
 import no.liflig.messaging.MessagePoller
 import no.liflig.messaging.awssdk.testutils.TestMessage
 import no.liflig.messaging.awssdk.testutils.TestMessagePollerObserver
@@ -25,7 +26,7 @@ internal class SqsQueueIntegrationTest {
   lateinit var queue: SqsQueue
 
   val messageProcessor = TestMessageProcessor()
-  val observer = TestMessagePollerObserver()
+  lateinit var observer: TestMessagePollerObserver
   lateinit var messagePoller: MessagePoller
 
   @BeforeAll
@@ -34,8 +35,9 @@ internal class SqsQueueIntegrationTest {
     localstack.start()
     sqsClient = localstack.createSqsClient()
     queueUrl = sqsClient.createQueue { it.queueName("test-queue") }.queueUrl()
-    queue = SqsQueue(sqsClient, queueUrl)
+    queue = SqsQueue(sqsClient, queueUrl, loggingMode = MessageLoggingMode.DISABLED)
 
+    observer = TestMessagePollerObserver(queue.observer.loggingMode ?: MessageLoggingMode.JSON)
     messagePoller = MessagePoller(queue, messageProcessor, observer = observer)
     messagePoller.start()
   }

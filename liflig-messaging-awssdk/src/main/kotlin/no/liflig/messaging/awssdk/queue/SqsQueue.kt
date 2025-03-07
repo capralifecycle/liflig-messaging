@@ -35,7 +35,7 @@ import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest
 public class SqsQueue(
     private val sqsClient: SqsClient,
     private val queueUrl: String,
-    private val observer: QueueObserver,
+    override val observer: QueueObserver,
     private val backoffService: BackoffService,
 ) : Queue {
   public constructor(
