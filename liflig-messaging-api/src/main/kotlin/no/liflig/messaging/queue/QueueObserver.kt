@@ -35,10 +35,13 @@ public open class DefaultQueueObserver(
   override fun onSendException(exception: Throwable, messageBody: String): Nothing {
     val logFields: List<LogField> =
         buildList(2) {
-          add(field("queueUrl", queueUrl))
           val bodyField = messageBodyLogField("outgoingQueueMessage", messageBody, loggingMode)
           if (bodyField != null) {
             add(bodyField)
+          }
+
+          if (queueUrl != null) {
+            add(field("queueUrl", queueUrl))
           }
         }
 

@@ -2,6 +2,7 @@ package no.liflig.messaging.topic
 
 import no.liflig.logging.ExceptionWithLogFields
 import no.liflig.logging.LogField
+import no.liflig.logging.getLogger
 
 /**
  * A message topic (a.k.a. event bus) that producers can publish messages to.
@@ -13,6 +14,10 @@ import no.liflig.logging.LogField
 public interface Topic {
   /** @throws TopicPublishException If we failed to publish the message. */
   public fun publish(message: String)
+
+  public companion object {
+    internal val logger = getLogger {}
+  }
 }
 
 /**

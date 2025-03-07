@@ -2,53 +2,51 @@
 
 package no.liflig.messaging.awssdk.topic
 
-import no.liflig.logging.field
 import no.liflig.logging.getLogger
-import no.liflig.logging.rawJsonField
+import no.liflig.messaging.MessageLoggingMode
+import no.liflig.messaging.topic.DefaultTopicObserver
 import no.liflig.messaging.topic.Topic
-import no.liflig.messaging.topic.TopicPublishException
+import no.liflig.messaging.topic.TopicObserver
 import software.amazon.awssdk.services.sns.SnsClient
-
-private val log = getLogger {}
 
 /**
  * [Topic] implementation for AWS SNS (Simple Notification Service).
  *
- * @param name Used for logging when publishing messages. Should be human-readable, and have "topic"
- *   somewhere in the name.
- * @param messagesAreValidJson We log the message in [publish], and want to log it as raw JSON to
- *   enable log analysis with CloudWatch. But we can't necessarily trust that the body is valid
- *   JSON, if it originates from some third party - and logging it as raw JSON in that case would
- *   break our logs. But if we know that the messages will always be valid JSON, we can set this
- *   flag to true to avoid having to validate the message.
+ * The class provides multiple constructors:
+ * - The primary constructor uses a provided
+ *   [TopicObserver][no.liflig.messaging.topic.TopicObserver]
+ * - A second utility constructor constructs a
+ *   [DefaultTopicObserver][no.liflig.messaging.topic.DefaultTopicObserver] with the given `name`
+ *   and [MessageLoggingMode][no.liflig.messaging.MessageLoggingMode]
  */
 public class SnsTopic(
     private val snsClient: SnsClient,
     private val topicArn: String,
-    private val name: String = "topic",
-    private val messagesAreValidJson: Boolean = false,
+    private val observer: TopicObserver,
 ) : Topic {
+  public constructor(
+      snsClient: SnsClient,
+      topicArn: String,
+      name: String = "topic",
+      loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
+  ) : this(
+      snsClient,
+      topicArn,
+      observer = DefaultTopicObserver(topicName = name, topicArn = topicArn, logger, loggingMode),
+  )
+
   override fun publish(message: String) {
     val response =
         try {
           snsClient.publish { req -> req.topicArn(topicArn).message(message) }
         } catch (e: Exception) {
-          throw TopicPublishException(
-              "Failed to publish message to ${name}",
-              cause = e,
-              logFields =
-                  listOf(
-                      rawJsonField("publishedMessage", message, validJson = messagesAreValidJson),
-                      field("topicArn", topicArn),
-                  ),
-          )
+          observer.onPublishException(e, message)
         }
 
-    log.info {
-      field("publishedMessageId", response.messageId())
-      rawJsonField("publishedMessage", message, validJson = messagesAreValidJson)
-      field("topicArn", topicArn)
-      "Published message to ${name}"
-    }
+    observer.onPublishSuccess(messageId = response.messageId(), messageBody = message)
+  }
+
+  internal companion object {
+    internal val logger = getLogger {}
   }
 }
