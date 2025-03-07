@@ -22,6 +22,10 @@
 
     <!--    AWS-->
     <aws-sdk.version>2.29.14</aws-sdk.version>
+
+    <!--    Test-->
+    <localstack.version>1.20.6</localstack.version>
+    <awaitility.version>4.3.0</awaitility.version>
   </properties>
 
   <dependencyManagement>
@@ -52,5 +56,20 @@
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>sns</artifactId>
     </dependency>
+    <!--  Test-->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>localstack</artifactId>
+      <version>${localstack.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.awaitility</groupId>
+      <artifactId>awaitility</artifactId>
+      <version>${awaitility.version}</version>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
+
 </project>

@@ -12,13 +12,16 @@ import java.io.InputStream
  * @param path Relative path from the resources directory.
  * @throws IllegalArgumentException If no resource file was found at the given path.
  */
-internal inline fun <ReturnT> useResourceFile(path: String, block: (InputStream) -> ReturnT): ReturnT {
+internal inline fun <ReturnT> useResourceFile(
+    path: String,
+    block: (InputStream) -> ReturnT
+): ReturnT {
   // Paths to getResourceAsStream should start with /, otherwise they're relative to the calling
   // package
   val fixedPath = if (!path.startsWith('/')) "/$path" else path
   val resource =
       ResourceLoader.javaClass.getResourceAsStream(fixedPath)
-        ?: throw IllegalArgumentException("Failed to find resource at path '${path}'")
+          ?: throw IllegalArgumentException("Failed to find resource at path '${path}'")
   // use ensures that the resource is closed correctly
   return resource.use(block)
 }
