@@ -7,7 +7,7 @@
   <parent>
     <groupId>no.liflig</groupId>
     <artifactId>kotlin-parent</artifactId>
-    <version>3.20250228.043044</version>
+    <version>3.20250304.125520</version>
   </parent>
 
   <!--suppress MavenRedundantGroupId -->
@@ -234,30 +234,6 @@
               <goal>test-compile</goal>
             </goals>
             <phase>test-compile</phase>
-          </execution>
-        </executions>
-      </plugin>
-
-      <!-- Formatting with ktfmt -->
-      <plugin>
-        <groupId>com.diffplug.spotless</groupId>
-        <artifactId>spotless-maven-plugin</artifactId>
-        <version>${spotless-maven-plugin.version}</version>
-        <configuration>
-          <kotlin>
-            <toggleOffOn/>
-            <ktfmt>
-              <version>${ktfmt.version}</version>
-              <style>DEFAULT</style>
-            </ktfmt>
-          </kotlin>
-        </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>check</goal>
-            </goals>
-            <phase>validate</phase>
           </execution>
         </executions>
       </plugin>

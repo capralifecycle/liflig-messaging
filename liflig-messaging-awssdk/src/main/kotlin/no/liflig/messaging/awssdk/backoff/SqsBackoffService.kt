@@ -20,8 +20,7 @@ internal class SqsBackoffService(
   override fun increaseVisibilityTimeout(message: Message, queueUrl: String) {
     val approximateReceiveCount =
         message.systemAttributes[MessageSystemAttributeName.APPROXIMATE_RECEIVE_COUNT.toString()]
-            ?.toInt()
-            ?: 1
+            ?.toInt() ?: 1
 
     val nextVisibilityTimeout =
         getNextVisibilityTimeout(
