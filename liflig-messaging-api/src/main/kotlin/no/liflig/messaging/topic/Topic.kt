@@ -25,6 +25,6 @@ public interface Topic {
  */
 public class TopicPublishException(
     override val message: String,
-    override val cause: Exception,
+    override val cause: Throwable,
     logFields: List<LogField>,
 ) : ExceptionWithLogFields(logFields)

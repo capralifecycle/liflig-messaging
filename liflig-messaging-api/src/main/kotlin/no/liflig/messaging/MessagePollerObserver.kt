@@ -17,7 +17,7 @@ public interface MessagePollerObserver {
   public fun onPoll(messages: List<Message>)
 
   /** Called when an exception is thrown when [MessagePoller] polls from its queue. */
-  public fun onPollException(exception: Exception)
+  public fun onPollException(exception: Throwable)
 
   /**
    * Called when [MessagePoller] starts processing a message, before passing it to the
@@ -32,7 +32,7 @@ public interface MessagePollerObserver {
   public fun onMessageFailure(message: Message, result: ProcessingResult.Failure)
 
   /** Called when a [MessageProcessor] throws an exception while processing a message. */
-  public fun onMessageException(message: Message, exception: Exception)
+  public fun onMessageException(message: Message, exception: Throwable)
 }
 
 /**
@@ -67,7 +67,7 @@ public open class DefaultMessagePollerObserver(
     }
   }
 
-  override fun onPollException(exception: Exception) {
+  override fun onPollException(exception: Throwable) {
     logger.error(exception) { "${logPrefix}Failed to poll messages. Retrying" }
   }
 
@@ -96,7 +96,7 @@ public open class DefaultMessagePollerObserver(
     }
   }
 
-  override fun onMessageException(message: Message, exception: Exception) {
+  override fun onMessageException(message: Message, exception: Throwable) {
     logger.error(exception) {
       addMessageBodyToLog("queueMessage", message.body, loggingMode)
       "${logPrefix}Message processing failed unexpectedly. Will be retried from queue"
