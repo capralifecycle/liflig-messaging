@@ -2,7 +2,10 @@
 
 package no.liflig.messaging
 
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.thread
+import kotlin.concurrent.withLock
 import kotlin.time.Duration.Companion.seconds
 import no.liflig.logging.field
 import no.liflig.logging.getLogger
@@ -31,22 +34,83 @@ public class MessagePoller(
             pollerName = name,
             loggingMode = queue.observer?.loggingMode ?: MessageLoggingMode.JSON,
         ),
-) {
+) : AutoCloseable {
+  /** Guards [status] and [threads]. */
+  private val lock = ReentrantLock()
+  private var status = PollerStatus.STOPPED
+  private val threads: MutableList<Thread> = ArrayList(concurrentPollers)
+  /** +1 party for the thread that calls [close]. */
+  private val latch =
+      CyclicBarrier(concurrentPollers + 1) { lock.withLock { status = PollerStatus.STOPPED } }
+
   public fun start() {
     observer.onPollerStartup()
 
-    for (i in 1..concurrentPollers) {
-      thread(name = "${name}-${i}") {
-        while (true) {
-          try {
-            poll()
-          } catch (e: Exception) {
-            observer.onPollException(e)
+    lock.withLock {
+      if (status != PollerStatus.STOPPED) {
+        logger.error { "Tried to start ${name} twice" }
+        return
+      }
 
-            Thread.sleep(POLLER_RETRY_TIMEOUT.inWholeMilliseconds)
+      threads.addAll(
+          (1..concurrentPollers).asSequence().map { number ->
+            thread(name = "${name}-${number}", block = ::runPollLoop)
+          },
+      )
+      status = PollerStatus.STARTED
+    }
+  }
+
+  /** Stops all poller threads currently running. */
+  override fun close() {
+    try {
+      observer.onPollerShutdown()
+    } catch (e: Exception) {
+      // We don't want to fail to shut down the MessagePoller just because the observer failed, so
+      // we just log here.
+      logger.error(e) {
+        "[${name}] Exception thrown by MessagePollerObserver.onPollerShutdown while closing down poller"
+      }
+    }
+
+    lock.withLock {
+      if (status == PollerStatus.STOPPED) {
+        return
+      }
+      status = PollerStatus.STOPPING
+
+      // Give threads 3 seconds to react to PollerStatus.STOPPING, before we start interrupting them
+      try {
+        Thread.sleep(3_000)
+      } catch (_: InterruptedException) {}
+
+      for (thread in threads) {
+        thread.interrupt()
+      }
+      threads.clear()
+    }
+
+    // Wait for all threads to exit
+    latch.await()
+  }
+
+  private fun runPollLoop() {
+    try {
+      while (!isStopped()) {
+        try {
+          poll()
+        } catch (e: Throwable) {
+          if (isStopped(cause = e)) {
+            break
           }
+
+          observer.onPollException(e)
+          Thread.sleep(POLLER_RETRY_TIMEOUT.inWholeMilliseconds)
         }
       }
+    } finally {
+      Thread.interrupted() // Clear interrupt status before calling latch.await()
+      latch.await()
     }
   }
 
@@ -55,7 +119,7 @@ public class MessagePoller(
     observer.onPoll(messages)
 
     for (message in messages) {
-      // Put message ID and body in logging context, so we can track logs for this message
+      // Put message ID in logging context, so we can track logs for this message
       withLoggingContext(field("queueMessageId", message.id)) {
         try {
           observer.onMessageProcessing(message)
@@ -75,6 +139,10 @@ public class MessagePoller(
             }
           }
         } catch (e: Exception) {
+          if (isStopped(cause = e)) {
+            return
+          }
+
           observer.onMessageException(message, e)
           queue.retry(message)
         }
@@ -82,9 +150,27 @@ public class MessagePoller(
     }
   }
 
+  private fun isStopped(cause: Throwable? = null): Boolean {
+    val status = lock.withLock { this.status }
+    val stopped =
+        status == PollerStatus.STOPPING ||
+            status == PollerStatus.STOPPED ||
+            Thread.currentThread().isInterrupted
+    if (stopped) {
+      observer.onPollerThreadStopped(cause)
+    }
+    return stopped
+  }
+
   internal companion object {
     internal val logger = getLogger {}
 
-    private val POLLER_RETRY_TIMEOUT = 10.seconds
+    internal val POLLER_RETRY_TIMEOUT = 10.seconds
   }
+}
+
+private enum class PollerStatus {
+  STARTED,
+  STOPPING,
+  STOPPED,
 }

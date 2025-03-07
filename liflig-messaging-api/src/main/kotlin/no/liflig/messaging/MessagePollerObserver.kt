@@ -18,6 +18,18 @@ public interface MessagePollerObserver {
   /** Called when an exception is thrown when [MessagePoller] polls from its queue. */
   public fun onPollException(exception: Throwable)
 
+  /** Called by [MessagePoller.close]. */
+  public fun onPollerShutdown()
+
+  /**
+   * Called when a [MessagePoller] thread detects that it has been interrupted. This is typically
+   * due to [MessagePoller.close] having been called.
+   *
+   * @param cause If the thread detected interruption in the context of an exception, it is passed
+   *   here.
+   */
+  public fun onPollerThreadStopped(cause: Throwable?)
+
   /**
    * Called when [MessagePoller] starts processing a message, before passing it to the
    * [MessageProcessor].
@@ -64,7 +76,17 @@ public open class DefaultMessagePollerObserver(
   }
 
   override fun onPollException(exception: Throwable) {
-    logger.error(exception) { "${logPrefix}Failed to poll messages. Retrying" }
+    logger.error(exception) {
+      "${logPrefix}Failed to poll messages. Retrying in ${MessagePoller.POLLER_RETRY_TIMEOUT.inWholeSeconds} seconds"
+    }
+  }
+
+  override fun onPollerShutdown() {
+    logger.info { "${logPrefix}Shutting down message poller" }
+  }
+
+  override fun onPollerThreadStopped(cause: Throwable?) {
+    logger.info(cause) { "${logPrefix}Message poller thread stopped" }
   }
 
   override fun onMessageProcessing(message: Message) {
