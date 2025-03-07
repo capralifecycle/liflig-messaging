@@ -5,8 +5,10 @@ package no.liflig.messaging.awssdk.queue
 import java.time.Duration
 import no.liflig.logging.getLogger
 import no.liflig.messaging.Message
+import no.liflig.messaging.MessageLoggingMode
 import no.liflig.messaging.awssdk.backoff.SqsBackoffService
 import no.liflig.messaging.backoff.BackoffConfig
+import no.liflig.messaging.backoff.BackoffService
 import no.liflig.messaging.queue.DefaultQueueObserver
 import no.liflig.messaging.queue.Queue
 import no.liflig.messaging.queue.QueueObserver
@@ -20,24 +22,34 @@ import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest
 /**
  * [Queue] implementation for AWS SQS (Simple Queue Service).
  *
- * @param name Used for logging in [send]. Should be human-readable, and have "queue" somewhere in
- *   the name.
- * @param messagesAreValidJson We log outgoing message bodies in [send], and incoming message bodies
- *   in [MessagePoller][no.liflig.messaging.MessagePoller]. We want to log these as raw JSON to
- *   enable log analysis with CloudWatch. But we can't necessarily trust that the body is valid
- *   JSON, because it may originate from some third party - and logging it as raw JSON in that case
- *   would break our logs. But if this is an internal-only queue where we know the bodies are valid
- *   JSON, we can set this flag to true to avoid having to validate the body.
+ * The class provides multiple constructors:
+ * - The primary constructor uses a provided
+ *   [QueueObserver][no.liflig.messaging.queue.QueueObserver] and
+ *   [BackoffService][no.liflig.messaging.backoff.BackoffService]
+ * - A second utility constructor constructs a
+ *   [DefaultQueueObserver][no.liflig.messaging.queue.DefaultQueueObserver] with the given `name`
+ *   and [MessageLoggingMode][no.liflig.messaging.MessageLoggingMode], and a default
+ *   [BackoffService][no.liflig.messaging.backoff.BackoffService] implementation using the given
+ *   [BackoffConfig][no.liflig.messaging.backoff.BackoffConfig]
  */
 public class SqsQueue(
     private val sqsClient: SqsClient,
     private val queueUrl: String,
-    private val name: String = "queue",
-    private val observer: QueueObserver =
-        DefaultQueueObserver(queueName = name, queueUrl = queueUrl, logger = logger),
-    backoffConfig: BackoffConfig = BackoffConfig(),
+    private val observer: QueueObserver,
+    private val backoffService: BackoffService,
 ) : Queue {
-  private val backoffService = SqsBackoffService(sqsClient, backoffConfig)
+  public constructor(
+      sqsClient: SqsClient,
+      queueUrl: String,
+      name: String = "queue",
+      loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
+      backoffConfig: BackoffConfig = BackoffConfig(),
+  ) : this(
+      sqsClient,
+      queueUrl,
+      observer = DefaultQueueObserver(queueName = name, queueUrl = queueUrl, logger, loggingMode),
+      backoffService = SqsBackoffService(sqsClient, backoffConfig),
+  )
 
   override fun send(
       messageBody: String,
