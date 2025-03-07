@@ -64,6 +64,7 @@
     <!-- Testing -->
     <junit.version>5.12.0</junit.version>
     <kotest.version>5.9.1</kotest.version>
+    <awaitility.version>4.3.0</awaitility.version>
 
     <!-- Maven plugins -->
     <maven-dependency-plugin.version>3.8.1</maven-dependency-plugin.version>
@@ -112,6 +113,12 @@
         <version>${junit.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.awaitility</groupId>
+        <artifactId>awaitility</artifactId>
+        <version>${awaitility.version}</version>
+        <scope>test</scope>
       </dependency>
 
       <!-- Transitive dependencies (must specify these for Maven Enforcer) -->

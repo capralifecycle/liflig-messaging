@@ -101,7 +101,7 @@ public class MockQueue : Queue {
    * ```
    */
   public fun hasProcessed(messageCount: Int): Boolean {
-    lock.write {
+    lock.read {
       return processedMessages.size == messageCount
     }
   }

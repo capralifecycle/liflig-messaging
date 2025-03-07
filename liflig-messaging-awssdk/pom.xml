@@ -25,7 +25,7 @@
 
     <!--    Test-->
     <localstack.version>1.20.6</localstack.version>
-    <awaitility.version>4.3.0</awaitility.version>
+
   </properties>
 
   <dependencyManagement>
@@ -66,9 +66,9 @@
     <dependency>
       <groupId>org.awaitility</groupId>
       <artifactId>awaitility</artifactId>
-      <version>${awaitility.version}</version>
       <scope>test</scope>
     </dependency>
+
 
   </dependencies>
 
