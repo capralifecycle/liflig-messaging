@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test
 
 internal class MessagePollerTest {
   @Test
-  fun fetchesMessagesFromQueue() {
+  fun `successfully takes messages from queue and sends to messageProcessor`() {
     val queue = MockQueue()
     val mockProcessor = MockProcessor()
 

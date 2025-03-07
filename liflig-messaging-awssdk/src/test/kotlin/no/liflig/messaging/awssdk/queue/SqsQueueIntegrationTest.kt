@@ -14,7 +14,7 @@ import software.amazon.awssdk.services.sqs.SqsClient
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class SqsQueueIntegrationTest {
-  lateinit var queuUrl: String
+  lateinit var queueUrl: String
   lateinit var client: SqsClient
   lateinit var localstack: LocalStackContainer
 
@@ -23,7 +23,7 @@ internal class SqsQueueIntegrationTest {
     localstack = createLocalstackContainer()
     localstack.start()
     client = localstack.createSqsClient()
-    queuUrl = client.createQueue { it.queueName("test-queue") }.queueUrl()
+    queueUrl = client.createQueue { it.queueName("test-queue") }.queueUrl()
   }
 
   @AfterAll
@@ -32,13 +32,12 @@ internal class SqsQueueIntegrationTest {
   }
 
   @Test
-  fun pollerShouldBeAbleToFetchMessagesFromSqsQueue() {
-    val queue = SqsQueue(client, queuUrl)
+  fun `works with MessagePoller`() {
+    val queue = SqsQueue(client, queueUrl)
     val mockProcessor = MockProcessor()
 
-    val poller = MessagePoller(queue, mockProcessor)
+    MessagePoller(queue, mockProcessor).start()
     repeat(3) { queue.send("Message-$it") }
-    poller.start()
 
     await().until { mockProcessor.hasProcessed(3) }
   }

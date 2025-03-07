@@ -48,7 +48,7 @@ internal class SnsTopicTest {
   }
 
   @Test
-  fun shouldBeAbleToPublishMessage() {
+  fun `publish successfully delivers messages to sns topic`() {
     val testMessage = readResourceFile("TestMessage.json")
     val topic = SnsTopic(snsClient, topicArn)
     val queue = SqsQueue(sqsClient, queueUrl)
