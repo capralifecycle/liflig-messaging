@@ -1,13 +1,12 @@
 package no.liflig.messaging
 
 import no.liflig.logging.Logger
-import no.liflig.logging.getLogger
 
 /**
  * Interface for observing various events in [MessagePoller]'s polling loop.
  *
  * A default implementation is provided by [DefaultMessagePollerObserver], which uses
- * `liflig-logging` to log descriptive messages for each of these events.
+ * `liflig-logging` to log descriptive messages for these events.
  */
 public interface MessagePollerObserver {
   /** Called when [MessagePoller] starts up. */
@@ -38,27 +37,24 @@ public interface MessagePollerObserver {
 /**
  * Default implementation of [MessagePollerObserver], using `liflig-logging` to log descriptive
  * messages for the various events in [MessagePoller]'s polling loop.
+ *
+ * @param pollerName Will be added as a prefix to all logs, to distinguish between different
+ *   `MessagePoller`s. If passing `null` here, no prefix will be added.
+ * @param logger Defaults to [MessagePoller]'s logger, so the logger name will show as:
+ *   `no.liflig.messaging.MessagePoller`. If you want a different logger name, you can construct
+ *   your own logger (using [no.liflig.logging.getLogger]) and pass it here.
+ * @param loggingMode Controls how message bodies are logged. Defaults to [MessageLoggingMode.JSON],
+ *   which tries to include the message as raw JSON, but checks that it's valid JSON first.
  */
 public open class DefaultMessagePollerObserver(
-    /**
-     * Will be added as a prefix to all logs, to distinguish between different `MessagePoller`s. If
-     * passing `null` here, no prefix will be added.
-     */
     pollerName: String? = "MessagePoller",
-    /**
-     * Defaults to [MessagePoller]'s logger, so the logger name will show as:
-     * `no.liflig.messaging.MessagePoller`.
-     *
-     * If you want a different logger name, you can construct your own logger (using [getLogger])
-     * and pass it here.
-     */
     protected val logger: Logger = MessagePoller.logger,
     protected val loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
 ) : MessagePollerObserver {
   private val logPrefix = if (pollerName != null) "[${pollerName}] " else ""
 
   override fun onPollerStartup() {
-    logger.info { "${logPrefix}Starting polling" }
+    logger.info { "${logPrefix}Starting message polling" }
   }
 
   override fun onPoll(messages: List<Message>) {
