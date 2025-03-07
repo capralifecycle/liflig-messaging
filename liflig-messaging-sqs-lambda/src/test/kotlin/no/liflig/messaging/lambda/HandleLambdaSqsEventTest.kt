@@ -13,7 +13,7 @@ import no.liflig.messaging.ProcessingResult
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
-internal class LambdaSqsEventHandlerTest {
+internal class HandleLambdaSqsEventTest {
   private val processor = TestMessageProcessor()
 
   @BeforeEach
