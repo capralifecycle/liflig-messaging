@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <!--
+        %replace( [%kvp{NONE}]){' \[]', ''} and %replace( [%mdc]){' \[]', ''} below adds log fields
+        (and logging context fields) in square brackets, but hides the brackets if they're empty.
+      -->
+      <!-- @formatter:off -->
+      <pattern>
+        %white([%d{HH:mm:ss}]) %highlight(%level) %cyan(%logger{36}){}%white(:) %msg%replace( [%kvp{NONE}]){' \[]', ''}%replace( [%mdc]){' \[]', ''}%n
+      </pattern>
+      <!-- @formatter:on -->
+    </encoder>
+  </appender>
+
+  <logger name="no.liflig.messaging" level="DEBUG"/>
+
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+  </root>
+</configuration>
