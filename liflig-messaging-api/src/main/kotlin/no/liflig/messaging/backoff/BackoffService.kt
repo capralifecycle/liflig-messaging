@@ -1,12 +1,14 @@
 package no.liflig.messaging.backoff
 
 import java.math.BigDecimal
+import no.liflig.logging.getLogger
 import no.liflig.messaging.Message
 
 public interface BackoffService {
   public fun increaseVisibilityTimeout(message: Message, queueUrl: String)
 
   public companion object {
+    /** Returns the next visibility timeout for exponential backoff, in seconds. */
     @JvmStatic
     public fun getNextVisibilityTimeout(
         approximateReceiveCount: Int,
@@ -25,5 +27,7 @@ public interface BackoffService {
       }
       return nextVisibilityTimeout.toInt()
     }
+
+    internal val logger = getLogger {}
   }
 }

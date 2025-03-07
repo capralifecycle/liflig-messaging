@@ -5,22 +5,24 @@ import no.liflig.messaging.Message
 import no.liflig.messaging.backoff.BackoffConfig
 import no.liflig.messaging.backoff.BackoffService
 import no.liflig.messaging.backoff.BackoffService.Companion.getNextVisibilityTimeout
+import no.liflig.messaging.backoff.BackoffServiceObserver
+import no.liflig.messaging.backoff.DefaultBackoffServiceObserver
 import software.amazon.awssdk.services.sqs.SqsClient
 import software.amazon.awssdk.services.sqs.model.ChangeMessageVisibilityRequest
 import software.amazon.awssdk.services.sqs.model.MessageSystemAttributeName
 
-private val log = getLogger {}
-
-/** Calculates and sets exponential backoff for messages on SQS queue */
+/** Calculates and sets exponential backoff for messages on an SQS queue. */
 internal class SqsBackoffService(
     private val sqsClient: SqsClient,
-    private val backoffConfig: BackoffConfig
+    private val backoffConfig: BackoffConfig,
+    private val observer: BackoffServiceObserver = DefaultBackoffServiceObserver(logger),
 ) : BackoffService {
   override fun increaseVisibilityTimeout(message: Message, queueUrl: String) {
-    var approximateReceiveCount = 1
-    message.systemAttributes[MessageSystemAttributeName.APPROXIMATE_RECEIVE_COUNT.toString()]
-        ?.let { count -> approximateReceiveCount = count.toInt() }
-    val receiptHandle = message.receiptHandle
+    val approximateReceiveCount =
+        message.systemAttributes[MessageSystemAttributeName.APPROXIMATE_RECEIVE_COUNT.toString()]
+            ?.toInt()
+            ?: 1
+
     val nextVisibilityTimeout =
         getNextVisibilityTimeout(
             approximateReceiveCount = approximateReceiveCount,
@@ -29,20 +31,22 @@ internal class SqsBackoffService(
             initialIntervalSeconds = backoffConfig.initialIntervalSeconds,
         )
 
-    log.info {
-      field("systemAttributes", message.systemAttributes)
-      field("receiveCount", approximateReceiveCount)
-      field("nextVisibilityTimeout", nextVisibilityTimeout)
-      field("receiptHandle", receiptHandle)
-      "Changing message visibility"
-    }
+    observer.onIncreaseVisibilityTimeout(
+        message,
+        nextVisibilityTimeout = nextVisibilityTimeout,
+        approximateReceiveCount = approximateReceiveCount,
+    )
 
     sqsClient.changeMessageVisibility(
         ChangeMessageVisibilityRequest.builder()
-            .receiptHandle(receiptHandle)
+            .receiptHandle(message.receiptHandle)
             .visibilityTimeout(nextVisibilityTimeout)
             .queueUrl(queueUrl)
             .build(),
     )
+  }
+
+  internal companion object {
+    internal val logger = getLogger {}
   }
 }
