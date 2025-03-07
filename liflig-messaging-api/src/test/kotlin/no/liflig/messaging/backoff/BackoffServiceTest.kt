@@ -4,7 +4,7 @@ import io.kotest.matchers.shouldBe
 import no.liflig.messaging.backoff.BackoffService.Companion.getNextVisibilityTimeout
 import org.junit.jupiter.api.Test
 
-internal class SqsBackoffServiceTest {
+internal class BackoffServiceTest {
   private val maxTimeoutMinutes = 20
   private val backoffFactor = 2.5
   private val initialIntervalSeconds = 30
