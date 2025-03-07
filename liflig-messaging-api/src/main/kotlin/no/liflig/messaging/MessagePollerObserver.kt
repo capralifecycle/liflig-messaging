@@ -53,6 +53,7 @@ public open class DefaultMessagePollerObserver(
      * and pass it here.
      */
     protected val logger: Logger = MessagePoller.logger,
+    protected val loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
 ) : MessagePollerObserver {
   private val logPrefix = if (pollerName != null) "[${pollerName}] " else ""
 
@@ -71,15 +72,22 @@ public open class DefaultMessagePollerObserver(
   }
 
   override fun onMessageProcessing(message: Message) {
-    logger.info { "${logPrefix}Processing message from queue" }
+    logger.info {
+      addMessageBodyToLog("queueMessage", message.body, loggingMode)
+      "${logPrefix}Processing message from queue"
+    }
   }
 
   override fun onMessageSuccess(message: Message) {
-    logger.info { "${logPrefix}Successfully processed message. Deleting from queue" }
+    logger.info {
+      addMessageBodyToLog("queueMessage", message.body, loggingMode)
+      "${logPrefix}Successfully processed message. Deleting from queue"
+    }
   }
 
   override fun onMessageFailure(message: Message, result: ProcessingResult.Failure) {
     logger.at(level = result.severity, cause = result.cause) {
+      addMessageBodyToLog("queueMessage", message.body, loggingMode)
       if (result.retry) {
         "${logPrefix}Message processing failed. Will be retried from queue"
       } else {
@@ -90,6 +98,7 @@ public open class DefaultMessagePollerObserver(
 
   override fun onMessageException(message: Message, exception: Exception) {
     logger.error(exception) {
+      addMessageBodyToLog("queueMessage", message.body, loggingMode)
       "${logPrefix}Message processing failed unexpectedly. Will be retried from queue"
     }
   }
