@@ -61,6 +61,6 @@ internal class MessageTest {
             .md5OfMessageAttributes(null)
             .build()
 
-    return sqsMessageToInternalFormat(sqsMessage)
+    return sqsMessageToInternalFormat(sqsMessage, source = "test")
   }
 }

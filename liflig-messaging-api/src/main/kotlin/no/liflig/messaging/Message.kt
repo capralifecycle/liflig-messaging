@@ -36,9 +36,13 @@ public data class Message(
      */
     val receiptHandle: String? = null,
     /**
-     * When processing SQS messages in AWS Lambda functions, AWS provides the event source ARN,
-     * which identifies the queue that sent to the Lambda. This is useful in some cases, so we set
-     * this field when using `liflig-messaging-sqs-lambda`.
+     * An identifier of the queue the message was polled from. The type of queue identifier used for
+     * this field varies depending on how the message was polled:
+     * - `SqsQueue` (in `liflig-messaging-awssdk`) uses the queue URL for this field, since that's
+     *   what the AWS SDK takes when polling messages
+     * - `handleLambdaSqsEvent` (in `liflig-messaging-sqs-lambda`) uses the queue ARN (Amazon
+     *   Resource Name) for this field, since that's what Lambda functions receive in their SQS
+     *   event (through the `eventSourceArn` field)
      */
     val source: String? = null,
 )

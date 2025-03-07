@@ -105,7 +105,9 @@ public class SqsQueue(
             .maxNumberOfMessages(10)
             .build()
 
-    return sqsClient.receiveMessage(receiveRequest).messages().map(::sqsMessageToInternalFormat)
+    return sqsClient.receiveMessage(receiveRequest).messages().map { sqsMessage ->
+      sqsMessageToInternalFormat(sqsMessage, source = queueUrl)
+    }
   }
 
   override fun retry(message: Message) {
@@ -117,7 +119,7 @@ public class SqsQueue(
   }
 }
 
-internal fun sqsMessageToInternalFormat(sqsMessage: SQSMessage): Message {
+internal fun sqsMessageToInternalFormat(sqsMessage: SQSMessage, source: String): Message {
   val customAttributes =
       if (!sqsMessage.hasMessageAttributes()) {
         emptyMap()
@@ -144,5 +146,6 @@ internal fun sqsMessageToInternalFormat(sqsMessage: SQSMessage): Message {
       receiptHandle = sqsMessage.receiptHandle(),
       systemAttributes = sqsMessage.attributesAsStrings() ?: emptyMap(),
       customAttributes = customAttributes,
+      source = source,
   )
 }
