@@ -4,7 +4,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import no.liflig.messaging.awssdk.testutils.createLocalstackContainer
 import no.liflig.messaging.awssdk.testutils.createSqsClient
-import no.liflig.messaging.awssdk.testutils.readResourcesFileAsText
+import no.liflig.messaging.awssdk.testutils.readResourceFile
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -33,7 +33,7 @@ internal class SqsQueueTest {
 
   @Test
   fun shouldBeAbleToSendAndReceiveMessage() {
-    val testMessage = readResourcesFileAsText("TestMessage.json")
+    val testMessage = readResourceFile("TestMessage.json")
     val queue = SqsQueue(client, queuUrl)
 
     queue.send(testMessage)

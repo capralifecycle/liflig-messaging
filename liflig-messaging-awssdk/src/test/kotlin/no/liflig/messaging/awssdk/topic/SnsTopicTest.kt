@@ -6,7 +6,7 @@ import no.liflig.messaging.awssdk.queue.SqsQueue
 import no.liflig.messaging.awssdk.testutils.createLocalstackContainer
 import no.liflig.messaging.awssdk.testutils.createSnsClient
 import no.liflig.messaging.awssdk.testutils.createSqsClient
-import no.liflig.messaging.awssdk.testutils.readResourcesFileAsText
+import no.liflig.messaging.awssdk.testutils.readResourceFile
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -49,7 +49,7 @@ internal class SnsTopicTest {
 
   @Test
   fun shouldBeAbleToPublishMessage() {
-    val testMessage = readResourcesFileAsText("TestMessage.json")
+    val testMessage = readResourceFile("TestMessage.json")
     val topic = SnsTopic(snsClient, topicArn)
     val queue = SqsQueue(sqsClient, queueUrl)
 
