@@ -137,8 +137,6 @@
   </dependencyManagement>
 
   <dependencies>
-
-
     <!-- Logging -->
     <dependency>
       <groupId>no.liflig</groupId>

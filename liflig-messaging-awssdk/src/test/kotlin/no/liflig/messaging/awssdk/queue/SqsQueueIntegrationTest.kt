@@ -1,12 +1,17 @@
 package no.liflig.messaging.awssdk.queue
 
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import no.liflig.messaging.MessagePoller
-import no.liflig.messaging.awssdk.testutils.MockProcessor
+import no.liflig.messaging.awssdk.testutils.TestMessage
+import no.liflig.messaging.awssdk.testutils.TestMessagePollerObserver
+import no.liflig.messaging.awssdk.testutils.TestMessageProcessor
 import no.liflig.messaging.awssdk.testutils.createLocalstackContainer
 import no.liflig.messaging.awssdk.testutils.createSqsClient
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.testcontainers.containers.localstack.LocalStackContainer
@@ -14,16 +19,32 @@ import software.amazon.awssdk.services.sqs.SqsClient
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class SqsQueueIntegrationTest {
-  lateinit var queueUrl: String
-  lateinit var client: SqsClient
   lateinit var localstack: LocalStackContainer
+  lateinit var sqsClient: SqsClient
+  lateinit var queueUrl: String
+  lateinit var queue: SqsQueue
+
+  val messageProcessor = TestMessageProcessor()
+  val observer = TestMessagePollerObserver()
+  lateinit var messagePoller: MessagePoller
 
   @BeforeAll
   fun setup() {
     localstack = createLocalstackContainer()
     localstack.start()
-    client = localstack.createSqsClient()
-    queueUrl = client.createQueue { it.queueName("test-queue") }.queueUrl()
+    sqsClient = localstack.createSqsClient()
+    queueUrl = sqsClient.createQueue { it.queueName("test-queue") }.queueUrl()
+    queue = SqsQueue(sqsClient, queueUrl)
+
+    messagePoller = MessagePoller(queue, messageProcessor, observer = observer)
+    messagePoller.start()
+  }
+
+  @BeforeEach
+  fun reset() {
+    sqsClient.purgeQueue { req -> req.queueUrl(queueUrl) }
+    messageProcessor.reset()
+    observer.reset()
   }
 
   @AfterAll
@@ -32,13 +53,29 @@ internal class SqsQueueIntegrationTest {
   }
 
   @Test
-  fun `works with MessagePoller`() {
-    val queue = SqsQueue(client, queueUrl)
-    val mockProcessor = MockProcessor()
+  fun `MessagePoller successfully polls message from SQS`() {
+    queue.send(TestMessage.SUCCESS)
 
-    MessagePoller(queue, mockProcessor).start()
-    repeat(3) { queue.send("Message-$it") }
+    await().until { messageProcessor.successCount == 1 }
+    observer.observedPollException().shouldBeNull()
+    observer.observedMessageException().shouldBeNull()
+  }
 
-    await().until { mockProcessor.hasProcessed(3) }
+  @Test
+  fun `MessagePoller handles failed message from SQS`() {
+    queue.send(TestMessage.FAILURE)
+
+    await().until { messageProcessor.failureCount == 1 }
+    observer.observedPollException().shouldBeNull()
+    observer.observedMessageException().shouldBeNull()
+  }
+
+  @Test
+  fun `MessagePoller handles exception when processing message from SQS`() {
+    queue.send(TestMessage.EXCEPTION)
+
+    await().until { messageProcessor.exceptionCount == 1 }
+    observer.observedPollException().shouldBeNull()
+    observer.observedMessageException().shouldNotBeNull()
   }
 }

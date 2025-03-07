@@ -1,15 +1,11 @@
 package no.liflig.messaging.lambda
 
-import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse
-import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse.BatchItemFailure
-import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import io.kotest.matchers.collections.shouldBeEmpty
-import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
-import java.util.UUID
-import no.liflig.messaging.Message
-import no.liflig.messaging.MessageProcessor
-import no.liflig.messaging.ProcessingResult
+import no.liflig.messaging.lambda.testutils.TestMessage
+import no.liflig.messaging.lambda.testutils.TestMessageProcessor
+import no.liflig.messaging.lambda.testutils.createSqsEvent
+import no.liflig.messaging.lambda.testutils.shouldHaveFailedMessages
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -72,68 +68,5 @@ internal class HandleLambdaSqsEventTest {
     processor.successCount shouldBe 2
     processor.failureCount shouldBe 1
     processor.exceptionCount shouldBe 1
-  }
-
-  /** Mock [MessageProcessor] implementation that counts successful and failed messages. */
-  private class TestMessageProcessor : MessageProcessor {
-    var successCount = 0
-    var failureCount = 0
-    var exceptionCount = 0
-
-    override fun process(message: Message): ProcessingResult {
-      return when (message.body) {
-        TestMessage.SUCCESS -> {
-          successCount++
-          ProcessingResult.Success
-        }
-        TestMessage.FAILURE -> {
-          failureCount++
-          ProcessingResult.Failure(retry = true)
-        }
-        TestMessage.EXCEPTION -> {
-          exceptionCount++
-          throw Exception("Processing failed due to exception")
-        }
-        else -> ProcessingResult.Success
-      }
-    }
-
-    fun reset() {
-      successCount = 0
-      failureCount = 0
-      exceptionCount = 0
-    }
-  }
-
-  /**
-   * In order to trigger successes/failures/exception in [TestMessageProcessor], we use these
-   * pre-defined message bodies to decide how to process them.
-   */
-  private object TestMessage {
-    const val SUCCESS = """{"type":"SUCCESS"}"""
-    const val FAILURE = """{"type":"FAILURE"}"""
-    const val EXCEPTION = """{"type":"EXCEPTION"}"""
-
-    fun success() = createMessage(SUCCESS)
-
-    fun failure() = createMessage(FAILURE)
-
-    fun exception() = createMessage(EXCEPTION)
-
-    private fun createMessage(body: String): SQSEvent.SQSMessage {
-      return SQSEvent.SQSMessage().apply {
-        this.body = body
-        messageId = UUID.randomUUID().toString()
-        receiptHandle = UUID.randomUUID().toString()
-      }
-    }
-  }
-
-  private fun createSqsEvent(vararg messages: SQSEvent.SQSMessage): SQSEvent {
-    return SQSEvent().apply { records = messages.toList() }
-  }
-
-  private fun SQSBatchResponse.shouldHaveFailedMessages(vararg messages: SQSEvent.SQSMessage) {
-    batchItemFailures.shouldContainExactly(messages.map { BatchItemFailure(it.messageId) })
   }
 }
