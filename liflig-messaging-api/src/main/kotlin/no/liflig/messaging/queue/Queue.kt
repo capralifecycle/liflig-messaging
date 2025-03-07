@@ -3,6 +3,7 @@ package no.liflig.messaging.queue
 import java.time.Duration
 import no.liflig.logging.ExceptionWithLogFields
 import no.liflig.logging.LogField
+import no.liflig.logging.getLogger
 import no.liflig.messaging.Message
 
 /**
@@ -62,6 +63,10 @@ public interface Queue {
    */
   public val messagesAreValidJson: Boolean
     get() = false
+
+  public companion object {
+    internal val logger = getLogger {}
+  }
 }
 
 /**
@@ -74,6 +79,6 @@ public interface Queue {
  */
 public class MessageSendingException(
     override val message: String,
-    override val cause: Exception,
+    override val cause: Throwable,
     logFields: List<LogField>,
 ) : ExceptionWithLogFields(logFields)

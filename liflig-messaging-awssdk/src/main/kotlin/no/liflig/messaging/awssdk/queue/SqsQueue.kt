@@ -3,22 +3,19 @@
 package no.liflig.messaging.awssdk.queue
 
 import java.time.Duration
-import no.liflig.logging.field
 import no.liflig.logging.getLogger
-import no.liflig.logging.rawJsonField
 import no.liflig.messaging.Message
 import no.liflig.messaging.awssdk.backoff.SqsBackoffService
 import no.liflig.messaging.backoff.BackoffConfig
-import no.liflig.messaging.queue.MessageSendingException
+import no.liflig.messaging.queue.DefaultQueueObserver
 import no.liflig.messaging.queue.Queue
+import no.liflig.messaging.queue.QueueObserver
 import software.amazon.awssdk.services.sqs.SqsClient
 import software.amazon.awssdk.services.sqs.model.Message as SQSMessage
 import software.amazon.awssdk.services.sqs.model.MessageAttributeValue
 import software.amazon.awssdk.services.sqs.model.MessageSystemAttributeName
 import software.amazon.awssdk.services.sqs.model.MessageSystemAttributeValue
 import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest
-
-private val log = getLogger {}
 
 /**
  * [Queue] implementation for AWS SQS (Simple Queue Service).
@@ -36,8 +33,9 @@ public class SqsQueue(
     private val sqsClient: SqsClient,
     private val queueUrl: String,
     private val name: String = "queue",
-    override val messagesAreValidJson: Boolean = false,
-    backoffConfig: BackoffConfig = BackoffConfig()
+    private val observer: QueueObserver =
+        DefaultQueueObserver(queueName = name, queueUrl = queueUrl, logger = logger),
+    backoffConfig: BackoffConfig = BackoffConfig(),
 ) : Queue {
   private val backoffService = SqsBackoffService(sqsClient, backoffConfig)
 
@@ -72,29 +70,10 @@ public class SqsQueue(
             }
           }
         } catch (e: Exception) {
-          throw MessageSendingException(
-              "Failed to send message to ${name}",
-              cause = e,
-              logFields =
-                  listOf(
-                      rawJsonField(
-                          "outgoingQueueMessage",
-                          messageBody,
-                          validJson = messagesAreValidJson,
-                      ),
-                      field("queueUrl", queueUrl),
-                  ),
-          )
+          observer.onSendException(e, messageBody)
         }
 
-    log.info {
-      // Add "outgoing" prefix to these log fields, for the cases where this is mapped from an
-      // incoming event, and we want fields from both outgoing and incoming to be included
-      field("outgoingQueueMessageId", response.messageId())
-      rawJsonField("outgoingQueueMessage", messageBody, validJson = messagesAreValidJson)
-      field("queueUrl", queueUrl)
-      "Sent message to ${name}"
-    }
+    observer.onSendSuccess(messageId = response.messageId(), messageBody = messageBody)
   }
 
   override fun delete(message: Message) {
@@ -119,6 +98,10 @@ public class SqsQueue(
 
   override fun retry(message: Message) {
     backoffService.increaseVisibilityTimeout(message, queueUrl)
+  }
+
+  internal companion object {
+    internal val logger = getLogger {}
   }
 }
 
