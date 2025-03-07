@@ -51,7 +51,7 @@ public open class DefaultMessagePollerObserver(
     protected val logger: Logger = MessagePoller.logger,
     protected val loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
 ) : MessagePollerObserver {
-  private val logPrefix = if (pollerName != null) "[${pollerName}] " else ""
+  protected val logPrefix: String = if (pollerName != null) "[${pollerName}] " else ""
 
   override fun onPollerStartup() {
     logger.info { "${logPrefix}Starting message polling" }

@@ -41,10 +41,10 @@ public interface TopicObserver {
  *   the message as raw JSON, but checks that it's valid JSON first.
  */
 public open class DefaultTopicObserver(
-    private val topicName: String = "topic",
-    private val topicArn: String? = null,
-    private val logger: Logger = Topic.logger,
-    private val loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
+    protected val topicName: String = "topic",
+    protected val topicArn: String? = null,
+    protected val logger: Logger = Topic.logger,
+    protected val loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
 ) : TopicObserver {
   override fun onPublishSuccess(messageId: String, messageBody: String) {
     logger.info {

@@ -43,10 +43,10 @@ public interface QueueObserver {
  *   the message as raw JSON, but checks that it's valid JSON first.
  */
 public open class DefaultQueueObserver(
-    private val queueName: String = "queue",
-    private val queueUrl: String? = null,
-    private val logger: Logger = Queue.logger,
-    private val loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
+    protected val queueName: String = "queue",
+    protected val queueUrl: String? = null,
+    protected val logger: Logger = Queue.logger,
+    protected val loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
 ) : QueueObserver {
   override fun onSendSuccess(messageId: String, messageBody: String) {
     logger.info {
