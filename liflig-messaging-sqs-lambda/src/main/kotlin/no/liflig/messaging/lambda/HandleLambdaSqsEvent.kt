@@ -3,12 +3,10 @@ package no.liflig.messaging.lambda
 import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse
 import com.amazonaws.services.lambda.runtime.events.SQSBatchResponse.BatchItemFailure
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
-import no.liflig.logging.field
 import no.liflig.logging.getLogger
-import no.liflig.logging.rawJsonField
-import no.liflig.logging.withLoggingContext
 import no.liflig.messaging.DefaultMessagePollerObserver
 import no.liflig.messaging.Message
+import no.liflig.messaging.MessageLoggingMode
 import no.liflig.messaging.MessagePollerObserver
 import no.liflig.messaging.MessageProcessor
 import no.liflig.messaging.ProcessingResult
@@ -54,18 +52,17 @@ private val log = getLogger {}
  * }
  * ```
  *
- * @param messagesAreValidJson We want to log incoming messages as raw JSON, to enable log analysis
- *   with CloudWatch. But we can't necessarily trust that the body is valid JSON, because it may
- *   originate from some third party - and logging it as raw JSON in that case would break our logs.
- *   So by default, we validate that the message body is actually valid JSON. But if this is an
- *   internal-only queue where you know the messages are valid JSON, you can set this flag to true
- *   to avoid the cost of validating the body.
+ * @param loggingMode Controls how message bodies are logged. Defaults to [MessageLoggingMode.JSON],
+ *   which tries to include the message as raw JSON, but checks that it's valid JSON first.
+ * @param observer Interface for observing various events in the message processing loop. The
+ *   default uses `liflig-logging` to log descriptive messages.
  */
 public fun handleLambdaSqsEvent(
     sqsEvent: SQSEvent,
     messageProcessor: MessageProcessor,
-    messagesAreValidJson: Boolean = false,
-    observer: MessagePollerObserver = DefaultMessagePollerObserver(pollerName = null, logger = log),
+    loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
+    observer: MessagePollerObserver =
+        DefaultMessagePollerObserver(pollerName = null, logger = log, loggingMode),
 ): SQSBatchResponse {
   val messages = sqsEvent.records.map(::lambdaSqsMessageToInternalFormat)
   val failedMessages = mutableListOf<BatchItemFailure>()
@@ -73,10 +70,7 @@ public fun handleLambdaSqsEvent(
   observer.onPoll(messages)
 
   for (message in messages) {
-    withLoggingContext(
-        field("queueMessageId", message.id),
-        rawJsonField("queueMessage", message.body, validJson = messagesAreValidJson),
-    ) {
+    observer.wrapMessageProcessing(message) {
       try {
         observer.onMessageProcessing(message)
 
