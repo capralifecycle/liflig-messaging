@@ -2,10 +2,9 @@
 
 package no.liflig.messaging
 
-import java.util.concurrent.CyclicBarrier
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.thread
-import kotlin.concurrent.withLock
+import java.util.concurrent.Executors
+import java.util.concurrent.ThreadFactory
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
 import no.liflig.logging.field
 import no.liflig.logging.getLogger
@@ -35,82 +34,43 @@ public class MessagePoller(
             loggingMode = queue.observer?.loggingMode ?: MessageLoggingMode.JSON,
         ),
 ) : AutoCloseable {
-  /** Guards [status] and [threads]. */
-  private val lock = ReentrantLock()
-  private var status = PollerStatus.STOPPED
-  private val threads: MutableList<Thread> = ArrayList(concurrentPollers)
-  /** +1 party for the thread that calls [close]. */
-  private val latch =
-      CyclicBarrier(concurrentPollers + 1) { lock.withLock { status = PollerStatus.STOPPED } }
+  private val executor =
+      Executors.newFixedThreadPool(concurrentPollers, MessagePollerThreadFactory(namePrefix = name))
 
   public fun start() {
     observer.onPollerStartup()
 
-    lock.withLock {
-      if (status != PollerStatus.STOPPED) {
-        logger.error { "Tried to start ${name} twice" }
-        return
-      }
-
-      threads.addAll(
-          (1..concurrentPollers).asSequence().map { number ->
-            thread(name = "${name}-${number}", block = ::runPollLoop)
-          },
-      )
-      status = PollerStatus.STARTED
+    for (i in 0 until concurrentPollers) {
+      executor.submit(::runPollLoop)
     }
   }
 
   /** Stops all poller threads currently running. */
   override fun close() {
-    try {
-      observer.onPollerShutdown()
-    } catch (e: Exception) {
-      // We don't want to fail to shut down the MessagePoller just because the observer failed, so
-      // we just log here.
-      logger.error(e) {
-        "[${name}] Exception thrown by MessagePollerObserver.onPollerShutdown while closing down poller"
-      }
-    }
+    observer.onPollerShutdown()
 
-    lock.withLock {
-      if (status == PollerStatus.STOPPED) {
-        return
-      }
-      status = PollerStatus.STOPPING
+    executor.shutdown()
 
-      // Give threads 3 seconds to react to PollerStatus.STOPPING, before we start interrupting them
-      try {
-        Thread.sleep(3_000)
-      } catch (_: InterruptedException) {}
+    // Give opportunity for poller threads to shut themselves down, before forcing shutdown.
+    // We just yield instead of sleeping here, as we don't want to block closing - and we would have
+    // to sleep for up to 20 seconds in order to wait for all polling to finish.
+    Thread.yield()
 
-      for (thread in threads) {
-        thread.interrupt()
-      }
-      threads.clear()
-    }
-
-    // Wait for all threads to exit
-    latch.await()
+    executor.shutdownNow()
   }
 
   private fun runPollLoop() {
-    try {
-      while (!isStopped()) {
-        try {
-          poll()
-        } catch (e: Throwable) {
-          if (isStopped(cause = e)) {
-            break
-          }
-
-          observer.onPollException(e)
-          Thread.sleep(POLLER_RETRY_TIMEOUT.inWholeMilliseconds)
+    while (!isStopped()) {
+      try {
+        poll()
+      } catch (e: Throwable) {
+        if (isStopped(cause = e)) {
+          break
         }
+
+        observer.onPollException(e)
+        Thread.sleep(POLLER_RETRY_TIMEOUT.inWholeMilliseconds)
       }
-    } finally {
-      Thread.interrupted() // Clear interrupt status before calling latch.await()
-      latch.await()
     }
   }
 
@@ -119,7 +79,7 @@ public class MessagePoller(
     observer.onPoll(messages)
 
     for (message in messages) {
-      // Put message ID in logging context, so we can track logs for this message
+      // Put message ID in logging context, so we can trace logs for this message
       withLoggingContext(field("queueMessageId", message.id)) {
         try {
           observer.onMessageProcessing(message)
@@ -151,11 +111,7 @@ public class MessagePoller(
   }
 
   private fun isStopped(cause: Throwable? = null): Boolean {
-    val status = lock.withLock { this.status }
-    val stopped =
-        status == PollerStatus.STOPPING ||
-            status == PollerStatus.STOPPED ||
-            Thread.currentThread().isInterrupted
+    val stopped = executor.isShutdown || Thread.currentThread().isInterrupted
     if (stopped) {
       observer.onPollerThreadStopped(cause)
     }
@@ -169,8 +125,10 @@ public class MessagePoller(
   }
 }
 
-private enum class PollerStatus {
-  STARTED,
-  STOPPING,
-  STOPPED,
+private class MessagePollerThreadFactory(private val namePrefix: String) : ThreadFactory {
+  private val threadCount = AtomicInteger(1)
+
+  override fun newThread(runnable: Runnable): Thread {
+    return Thread(runnable, "${namePrefix}-${threadCount.getAndIncrement()}")
+  }
 }

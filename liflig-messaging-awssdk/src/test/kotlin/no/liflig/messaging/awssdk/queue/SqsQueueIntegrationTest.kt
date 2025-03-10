@@ -11,7 +11,6 @@ import no.liflig.messaging.awssdk.testutils.createLocalstackContainer
 import no.liflig.messaging.awssdk.testutils.createSqsClient
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -40,6 +39,7 @@ internal class SqsQueueIntegrationTest {
 
     observer = TestMessagePollerObserver(queue.observer.loggingMode ?: MessageLoggingMode.JSON)
     messagePoller = MessagePoller(queue, messageProcessor, observer = observer)
+    messagePoller.start()
   }
 
   @BeforeEach
@@ -47,16 +47,11 @@ internal class SqsQueueIntegrationTest {
     sqsClient.purgeQueue { req -> req.queueUrl(queueUrl) }
     messageProcessor.reset()
     observer.reset()
-    messagePoller.start()
-  }
-
-  @AfterEach
-  fun after() {
-    messagePoller.close()
   }
 
   @AfterAll
   fun cleanup() {
+    messagePoller.close()
     localstack.stop()
   }
 
