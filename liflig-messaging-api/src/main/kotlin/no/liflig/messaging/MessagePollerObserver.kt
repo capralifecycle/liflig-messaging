@@ -1,6 +1,8 @@
 package no.liflig.messaging
 
 import no.liflig.logging.Logger
+import no.liflig.logging.field
+import no.liflig.logging.withLoggingContext
 
 /**
  * Interface for observing various events in [MessagePoller]'s polling loop.
@@ -31,18 +33,49 @@ public interface MessagePollerObserver {
   public fun onPollerThreadStopped(cause: Throwable?)
 
   /**
+   * Wraps [MessagePoller]'s code for processing the given message (including the call to
+   * [MessageProcessor.process]). This allows you to add scope-based context to the message
+   * processing. For example, [DefaultMessagePollerObserver] uses
+   * [no.liflig.logging.withLoggingContext] to add the queue message ID to the logging context.
+   *
+   * The implementation of this method MUST call the given [messageProcessingBlock] once, and only
+   * once.
+   *
+   * @return The same type as the given [messageProcessingBlock] (so you must return the result of
+   *   calling the block).
+   */
+  public fun <ReturnT> wrapMessageProcessing(
+      message: Message,
+      messageProcessingBlock: () -> ReturnT
+  ): ReturnT
+
+  /**
    * Called when [MessagePoller] starts processing a message, before passing it to the
    * [MessageProcessor].
+   *
+   * This is called inside the scope of [wrapMessageProcessing].
    */
   public fun onMessageProcessing(message: Message)
 
-  /** Called when a [MessageProcessor] returns [ProcessingResult.Success]. */
+  /**
+   * Called when [MessageProcessor] returns [ProcessingResult.Success].
+   *
+   * This is called inside the scope of [wrapMessageProcessing].
+   */
   public fun onMessageSuccess(message: Message)
 
-  /** Called when a [MessageProcessor] returns [ProcessingResult.Failure]. */
+  /**
+   * Called when [MessageProcessor] returns [ProcessingResult.Failure].
+   *
+   * This is called inside the scope of [wrapMessageProcessing].
+   */
   public fun onMessageFailure(message: Message, result: ProcessingResult.Failure)
 
-  /** Called when a [MessageProcessor] throws an exception while processing a message. */
+  /**
+   * Called when [MessageProcessor] throws an exception while processing a message.
+   *
+   * This is called inside the scope of [wrapMessageProcessing].
+   */
   public fun onMessageException(message: Message, exception: Throwable)
 }
 
@@ -87,6 +120,14 @@ public open class DefaultMessagePollerObserver(
 
   override fun onPollerThreadStopped(cause: Throwable?) {
     logger.info(cause) { "${logPrefix}Message poller thread stopped" }
+  }
+
+  override fun <ReturnT> wrapMessageProcessing(
+      message: Message,
+      messageProcessingBlock: () -> ReturnT
+  ): ReturnT {
+    // Puts message ID in logging context, so we can trace logs for the message
+    return withLoggingContext(field("queueMessageId", message.id), block = messageProcessingBlock)
   }
 
   override fun onMessageProcessing(message: Message) {

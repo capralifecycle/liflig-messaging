@@ -2,13 +2,12 @@
 
 package no.liflig.messaging
 
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
-import no.liflig.logging.field
 import no.liflig.logging.getLogger
-import no.liflig.logging.withLoggingContext
 import no.liflig.messaging.queue.Queue
 
 /**
@@ -27,14 +26,14 @@ public class MessagePoller(
     private val queue: Queue,
     private val messageProcessor: MessageProcessor,
     private val concurrentPollers: Int = 1,
-    private val name: String = "MessagePoller",
+    name: String = "MessagePoller",
     private val observer: MessagePollerObserver =
         DefaultMessagePollerObserver(
             pollerName = name,
             loggingMode = queue.observer?.loggingMode ?: MessageLoggingMode.JSON,
         ),
 ) : AutoCloseable {
-  private val executor =
+  private val executor: ExecutorService =
       Executors.newFixedThreadPool(concurrentPollers, MessagePollerThreadFactory(namePrefix = name))
 
   public fun start() {
@@ -43,20 +42,6 @@ public class MessagePoller(
     for (i in 0 until concurrentPollers) {
       executor.submit(::runPollLoop)
     }
-  }
-
-  /** Stops all poller threads currently running. */
-  override fun close() {
-    observer.onPollerShutdown()
-
-    executor.shutdown()
-
-    // Give opportunity for poller threads to shut themselves down, before forcing shutdown.
-    // We just yield instead of sleeping here, as we don't want to block closing - and we would have
-    // to sleep for up to 20 seconds in order to wait for all polling to finish.
-    Thread.yield()
-
-    executor.shutdownNow()
   }
 
   private fun runPollLoop() {
@@ -79,35 +64,54 @@ public class MessagePoller(
     observer.onPoll(messages)
 
     for (message in messages) {
-      // Put message ID in logging context, so we can trace logs for this message
-      withLoggingContext(field("queueMessageId", message.id)) {
-        try {
-          observer.onMessageProcessing(message)
+      val stopped: Boolean =
+          observer.wrapMessageProcessing(message) {
+            try {
+              observer.onMessageProcessing(message)
 
-          when (val result = messageProcessor.process(message)) {
-            is ProcessingResult.Success -> {
-              observer.onMessageSuccess(message)
-              queue.delete(message)
-            }
-            is ProcessingResult.Failure -> {
-              observer.onMessageFailure(message, result)
-              if (result.retry) {
-                queue.retry(message)
-              } else {
-                queue.delete(message)
+              when (val result = messageProcessor.process(message)) {
+                is ProcessingResult.Success -> {
+                  observer.onMessageSuccess(message)
+                  queue.delete(message)
+                }
+                is ProcessingResult.Failure -> {
+                  observer.onMessageFailure(message, result)
+                  if (result.retry) {
+                    queue.retry(message)
+                  } else {
+                    queue.delete(message)
+                  }
+                }
               }
+              return@wrapMessageProcessing false
+            } catch (e: Exception) {
+              if (isStopped(cause = e)) {
+                return@wrapMessageProcessing true
+              }
+
+              observer.onMessageException(message, e)
+              queue.retry(message)
+              return@wrapMessageProcessing false
             }
           }
-        } catch (e: Exception) {
-          if (isStopped(cause = e)) {
-            return
-          }
-
-          observer.onMessageException(message, e)
-          queue.retry(message)
-        }
+      if (stopped) {
+        return
       }
     }
+  }
+
+  /** Stops all poller threads currently running. Does not wait for them to shut down. */
+  override fun close() {
+    observer.onPollerShutdown()
+
+    executor.shutdown()
+
+    // Give opportunity for poller threads to shut themselves down, before forcing shutdown.
+    // We just yield instead of sleeping here, as we don't want to block closing - and we would have
+    // to sleep for up to 20 seconds in order to wait for all polling to finish.
+    Thread.yield()
+
+    executor.shutdownNow()
   }
 
   private fun isStopped(cause: Throwable? = null): Boolean {
@@ -125,6 +129,7 @@ public class MessagePoller(
   }
 }
 
+/** Thread factory to set custom names for threads spawned by [MessagePoller.executor]. */
 private class MessagePollerThreadFactory(private val namePrefix: String) : ThreadFactory {
   private val threadCount = AtomicInteger(1)
 
