@@ -6,6 +6,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.function.Predicate
 import kotlin.time.Duration.Companion.seconds
 import no.liflig.logging.getLogger
 import no.liflig.messaging.queue.Queue
@@ -21,6 +22,11 @@ import no.liflig.messaging.queue.Queue
  * @param name Used as a prefix for thread names, and if using [DefaultMessagePollerObserver], this
  *   is included in the logs. If you're running multiple MessagePollers in your application, you
  *   should provide a more specific name here, to make debugging easier.
+ * @param observer See [MessagePollerObserver].
+ * @param stopPredicate If you want custom logic to determine when the `MessagePoller`'s polling
+ *   loop should stop, you can pass this "stop predicate" function. When an exception is thrown in
+ *   the polling loop, this predicate is called with the exception. If it returns true, the poller
+ *   stops.
  */
 public class MessagePoller(
     private val queue: Queue,
@@ -32,6 +38,7 @@ public class MessagePoller(
             pollerName = name,
             loggingMode = queue.observer?.loggingMode ?: MessageLoggingMode.JSON,
         ),
+    private val stopPredicate: Predicate<Throwable>? = null,
 ) : AutoCloseable {
   private val executor: ExecutorService =
       Executors.newFixedThreadPool(concurrentPollers, MessagePollerThreadFactory(namePrefix = name))
@@ -117,7 +124,12 @@ public class MessagePoller(
   }
 
   private fun isStopped(cause: Throwable? = null): Boolean {
-    val stopped = executor.isShutdown || Thread.currentThread().isInterrupted
+    var stopped = executor.isShutdown || Thread.currentThread().isInterrupted
+
+    if (stopPredicate != null && cause != null && !stopped) {
+      stopped = stopPredicate.test(cause)
+    }
+
     if (stopped) {
       observer.onPollerThreadStopped(cause)
     }
