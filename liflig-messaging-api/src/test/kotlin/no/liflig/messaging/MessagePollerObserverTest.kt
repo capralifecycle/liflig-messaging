@@ -87,7 +87,7 @@ internal class MessagePollerObserverTest {
 
     await().until { queue.sentMessages.isEmpty() }
 
-    observer.messageProcessing shouldBe 3
+    observer.processingCount shouldBe 3
   }
 
   @Test

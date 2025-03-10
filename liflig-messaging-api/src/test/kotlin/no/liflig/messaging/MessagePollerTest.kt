@@ -4,6 +4,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import no.liflig.messaging.queue.MockQueue
 import no.liflig.messaging.testutils.TestMessage
+import no.liflig.messaging.testutils.TestMessagePollerObserver
 import no.liflig.messaging.testutils.TestMessageProcessor
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.BeforeEach
@@ -29,6 +30,20 @@ internal class MessagePollerTest {
       testProcessor.successCount shouldBe 3
       queue.processedMessages shouldHaveSize 3
       queue.sentMessages shouldHaveSize 0
+    }
+  }
+
+  @Test
+  fun `stopPredicate can stop poller thread`() {
+    var observer = TestMessagePollerObserver()
+
+    MessagePoller(queue, testProcessor, observer = observer, stopPredicate = { true }).use {
+        messagePoller ->
+      messagePoller.start()
+
+      queue.send(TestMessage.EXCEPTION)
+
+      await().until { observer.threadStoppedCount > 0 }
     }
   }
 }
