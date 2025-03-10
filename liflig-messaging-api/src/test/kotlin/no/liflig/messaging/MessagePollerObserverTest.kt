@@ -70,11 +70,24 @@ internal class MessagePollerObserverTest {
 
   @Test
   fun `processing a message invokes wrapMessageProcessing`() {
-    repeat(3) { queue.send(TestMessage.SUCCESS) }
+    queue.send(TestMessage.SUCCESS)
+    queue.send(TestMessage.FAILURE)
+    queue.send(TestMessage.EXCEPTION)
 
     await().until { queue.sentMessages.isEmpty() }
 
     observer.wrappedProcessingCount shouldBe 3
+  }
+
+  @Test
+  fun `processing a message invokes onMessageProcessing`() {
+    queue.send(TestMessage.SUCCESS)
+    queue.send(TestMessage.FAILURE)
+    queue.send(TestMessage.EXCEPTION)
+
+    await().until { queue.sentMessages.isEmpty() }
+
+    observer.messageProcessing shouldBe 3
   }
 
   @Test

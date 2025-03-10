@@ -6,20 +6,22 @@ import no.liflig.messaging.ProcessingResult
 
 internal class TestMessagePollerObserver : DefaultMessagePollerObserver() {
 
-  var failureCount = 0
-  var successCount = 0
   var exceptionCount = 0
-  var wrappedProcessingCount = 0
-  var startupCount = 0
+  var failureCount = 0
+  var messageProcessing = 0
   var shutdownCount = 0
+  var startupCount = 0
+  var successCount = 0
+  var wrappedProcessingCount = 0
 
   fun reset() {
-    failureCount = 0
-    successCount = 0
     exceptionCount = 0
-    wrappedProcessingCount = 0
-    startupCount = 0
+    failureCount = 0
+    messageProcessing = 0
     shutdownCount = 0
+    startupCount = 0
+    successCount = 0
+    wrappedProcessingCount = 0
   }
 
   override fun onPollerStartup() {
@@ -36,6 +38,10 @@ internal class TestMessagePollerObserver : DefaultMessagePollerObserver() {
 
   override fun onMessageSuccess(message: Message) {
     successCount++
+  }
+
+  override fun onMessageProcessing(message: Message) {
+    messageProcessing++
   }
 
   override fun onMessageException(message: Message, exception: Throwable) {
