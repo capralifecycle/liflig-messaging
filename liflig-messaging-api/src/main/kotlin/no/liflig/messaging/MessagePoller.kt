@@ -54,6 +54,8 @@ public class MessagePoller(
         }
 
         observer.onPollException(e)
+
+        /** See [MessagePoller.POLLER_RETRY_TIMEOUT]. */
         Thread.sleep(POLLER_RETRY_TIMEOUT.inWholeMilliseconds)
       }
     }
@@ -125,6 +127,15 @@ public class MessagePoller(
   internal companion object {
     internal val logger = getLogger {}
 
+    /**
+     * We sleep for this duration if we encounter an exception in [runPollLoop]. This is to avoid an
+     * infinite loop, in the case that `Queue.poll` always throws an exception (which may happen if
+     * the queue has been misconfigured). Such an infinite loop would spam logs continuously.
+     *
+     * It's not a concern to sleep for this duration even if the exception from `Queue.poll` is just
+     * a temporary problem (such as a network failure), because `Queue.poll` can already take up to
+     * 20 seconds when polling. So delaying further polling by 10 seconds should not be an issue.
+     */
     internal val POLLER_RETRY_TIMEOUT = 10.seconds
   }
 }
