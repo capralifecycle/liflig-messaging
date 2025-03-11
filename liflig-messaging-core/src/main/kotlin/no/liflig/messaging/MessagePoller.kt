@@ -16,6 +16,9 @@ import no.liflig.messaging.queue.Queue
  * given [MessageProcessor]. If processing succeeded, the message is deleted, otherwise we backoff
  * to retry later.
  *
+ * Call [MessagePoller.start] on application start-up. This will spawn threads that run side-by-side
+ * with your application, continuously polling messages.
+ *
  * @param concurrentPollers Number of threads to spawn. Each thread continuously polls the queue (in
  *   the SQS implementation, message polling waits for up to 20 seconds if there are no available
  *   messages, so continuously polling is not a concern).
@@ -43,6 +46,11 @@ public class MessagePoller(
   private val executor: ExecutorService =
       Executors.newFixedThreadPool(concurrentPollers, MessagePollerThreadFactory(namePrefix = name))
 
+  /**
+   * Spawns a number of threads equal to [concurrentPollers] (default 1). Each thread continuously
+   * polls messages from the queue, passing them to the message processor. The polling continues
+   * until [close] is called, or the application exits.
+   */
   public fun start() {
     observer.wrapPoller {
       observer.onPollerStartup()

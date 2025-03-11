@@ -40,7 +40,7 @@ import no.liflig.messaging.Message
 import no.liflig.messaging.MessageProcessor
 import no.liflig.messaging.ProcessingResult
 
-class ExampleEventProcessor() : MessageProcessor {
+class ExampleEventProcessor : MessageProcessor {
   override fun process(message: Message): ProcessingResult {
     val event = ExampleEvent.fromJson(message.body)
 
@@ -56,10 +56,13 @@ AWS Lambda function.
 
 #### Long-running services
 
-For a long-running service, you'll use `MessagePoller`. You pass your `MessageProcessor` to its
-constructor, and call `messagePoller.start()` on application start-up. You also have to pass a
-`Queue` implementation - if you use `liflig-messaging-awssdk`, you can use the `SqsQueue`
-implementation for AWS SQS (Simple Queue Service).
+For a long-running service, you'll use `MessagePoller`. You pass your `MessageProcessor` and a
+`Queue` implementation to its constructor, and call `messagePoller.start()` on application start-up.
+This spawns a thread that runs side-by-side with your service, polling messages from the queue and
+passing them to your processor.
+
+If you use `liflig-messaging-awssdk`, you can use the `SqsQueue` implementation for AWS SQS (Simple
+Queue Service).
 
 ```kotlin
 import no.liflig.messaging.MessagePoller
@@ -70,11 +73,9 @@ import software.amazon.awssdk.services.sqs.SqsClient
 class App(config: Config) {
   val inputQueue: Queue = SqsQueue(SqsClient.create(), config.inputQueueUrl)
 
-  val eventProcessor = ExampleEventProcessor()
-
   val messagePoller = MessagePoller(
     queue = inputQueue,
-    messageProcessor = eventProcessor,
+    messageProcessor = ExampleEventProcessor(),
   )
 
   fun start() {
@@ -112,7 +113,9 @@ class LambdaHandler(
 > your Lambda <-> SQS integration. In AWS CDK, you do this on the `SqsEventSource`:
 >
 > ```ts
-> myLambda.addEventSource(new SqsEventSource(myQueue, { reportBatchItemFailures: true }));
+> myLambda.addEventSource(
+>   new SqsEventSource(myQueue, { reportBatchItemFailures: true })
+> );
 > ```
 >
 > For more on the reason behind this, see the docstring on `handleLambdaSqsEvent`.
