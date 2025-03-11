@@ -1,6 +1,11 @@
 package no.liflig.messaging
 
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import kotlin.concurrent.withLock
+import no.liflig.logging.LogField
+import no.liflig.logging.field
+import no.liflig.logging.getLoggingContext
 import no.liflig.messaging.queue.MockQueue
 import no.liflig.messaging.testutils.TestMessage
 import no.liflig.messaging.testutils.TestMessagePollerObserver
@@ -105,5 +110,45 @@ internal class MessagePollerObserverTest {
     messagePoller.start()
     messagePoller.close()
     observer.shutdownCount shouldBe 1
+  }
+
+  @Test
+  fun `DefaultMessagePollerObserver adds expected fields to logging context`() {
+    val pollerName = "CustomPollerNameForTest"
+    val queueMessageId = "f04be04e-2dd0-488f-8ff0-be49a3ddb215"
+
+    var loggingContextFields: List<LogField>? = null
+
+    val processor =
+        object : MessageProcessor {
+          override fun process(message: Message): ProcessingResult {
+            loggingContextFields = getLoggingContext()
+            return ProcessingResult.Success
+          }
+        }
+
+    val queue = MockQueue()
+
+    MessagePoller(queue, processor, name = pollerName).use { poller ->
+      poller.start()
+
+      queue.lock.withLock {
+        queue.sentMessages.add(
+            Message(
+                id = queueMessageId,
+                body = """{"test":true}""",
+                systemAttributes = emptyMap(),
+                customAttributes = emptyMap(),
+            ),
+        )
+      }
+
+      await().until { loggingContextFields != null }
+
+      loggingContextFields.shouldContainExactlyInAnyOrder(
+          field("queueMessageId", queueMessageId),
+          field("pollerName", pollerName),
+      )
+    }
   }
 }

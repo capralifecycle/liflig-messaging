@@ -44,26 +44,30 @@ public class MessagePoller(
       Executors.newFixedThreadPool(concurrentPollers, MessagePollerThreadFactory(namePrefix = name))
 
   public fun start() {
-    observer.onPollerStartup()
+    observer.wrapPoller {
+      observer.onPollerStartup()
 
-    for (i in 0 until concurrentPollers) {
-      executor.submit(::runPollLoop)
+      for (i in 0 until concurrentPollers) {
+        executor.submit(::runPollLoop)
+      }
     }
   }
 
   private fun runPollLoop() {
-    while (!isStopped()) {
-      try {
-        poll()
-      } catch (e: Throwable) {
-        if (isStopped(cause = e)) {
-          break
+    observer.wrapPoller {
+      while (!isStopped()) {
+        try {
+          poll()
+        } catch (e: Throwable) {
+          if (isStopped(cause = e)) {
+            break
+          }
+
+          observer.onPollException(e)
+
+          /** See [MessagePoller.POLLER_RETRY_TIMEOUT]. */
+          Thread.sleep(POLLER_RETRY_TIMEOUT.inWholeMilliseconds)
         }
-
-        observer.onPollException(e)
-
-        /** See [MessagePoller.POLLER_RETRY_TIMEOUT]. */
-        Thread.sleep(POLLER_RETRY_TIMEOUT.inWholeMilliseconds)
       }
     }
   }
@@ -111,16 +115,18 @@ public class MessagePoller(
 
   /** Stops all poller threads currently running. Does not wait for them to shut down. */
   override fun close() {
-    observer.onPollerShutdown()
+    observer.wrapPoller {
+      observer.onPollerShutdown()
 
-    executor.shutdown()
+      executor.shutdown()
 
-    // Give opportunity for poller threads to shut themselves down, before forcing shutdown.
-    // We just yield instead of sleeping here, as we don't want to block closing - and we would have
-    // to sleep for up to 20 seconds in order to wait for all polling to finish.
-    Thread.yield()
+      // Give opportunity for poller threads to shut themselves down, before forcing shutdown.
+      // We just yield instead of sleeping here, as we don't want to block closing - and we would
+      // have to sleep for up to 20 seconds in order to wait for all polling to finish.
+      Thread.yield()
 
-    executor.shutdownNow()
+      executor.shutdownNow()
+    }
   }
 
   private fun isStopped(cause: Throwable? = null): Boolean {

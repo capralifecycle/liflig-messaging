@@ -33,23 +33,6 @@ public interface MessagePollerObserver {
   public fun onPollerThreadStopped(cause: Throwable?)
 
   /**
-   * Wraps [MessagePoller]'s code for processing the given message (including the call to
-   * [MessageProcessor.process]). This allows you to add scope-based context to the message
-   * processing. For example, [DefaultMessagePollerObserver] uses
-   * [no.liflig.logging.withLoggingContext] to add the queue message ID to the logging context.
-   *
-   * The implementation of this method MUST call the given [messageProcessingBlock] once, and only
-   * once.
-   *
-   * @return The same type as the given [messageProcessingBlock] (so you must return the result of
-   *   calling the block).
-   */
-  public fun <ReturnT> wrapMessageProcessing(
-      message: Message,
-      messageProcessingBlock: () -> ReturnT
-  ): ReturnT
-
-  /**
    * Called when [MessagePoller] starts processing a message, before passing it to the
    * [MessageProcessor].
    *
@@ -77,14 +60,49 @@ public interface MessagePollerObserver {
    * This is called inside the scope of [wrapMessageProcessing].
    */
   public fun onMessageException(message: Message, exception: Throwable)
+
+  /**
+   * Wraps [MessagePoller]'s code for processing the given message (including the call to
+   * [MessageProcessor.process]). This allows you to add scope-based context to the message
+   * processing. For example, [DefaultMessagePollerObserver] uses
+   * [no.liflig.logging.withLoggingContext] to add the queue message ID to the logging context.
+   *
+   * The implementation of this method MUST call the given [messageProcessingBlock] once, and only
+   * once.
+   *
+   * @return The same type as the given [messageProcessingBlock] (so you must return the result of
+   *   calling the block).
+   */
+  public fun <ReturnT> wrapMessageProcessing(
+      message: Message,
+      messageProcessingBlock: () -> ReturnT
+  ): ReturnT
+
+  /**
+   * Wraps [MessagePoller]'s main polling loop (including message processing), as well as startup
+   * and shutdown. This allows you to add scope-based context to the whole lifetime of a message
+   * poller (the given [pollerBlock] will not exit until the poller is closed). For example,
+   * [DefaultMessagePollerObserver] uses [no.liflig.logging.withLoggingContext] to add the message
+   * poller name to the logging context, so users can distinguish between logs from different
+   * pollers.
+   *
+   * The implementation of this method MUST call the given [pollerBlock] once, and only once.
+   *
+   * All other methods on this interface are called in the scope of [pollerBlock].
+   *
+   * @return The same type as the given [pollerBlock] (so you must return the result of calling the
+   *   lambda).
+   */
+  public fun <ReturnT> wrapPoller(pollerBlock: () -> ReturnT): ReturnT
 }
 
 /**
  * Default implementation of [MessagePollerObserver], using `liflig-logging` to log descriptive
  * messages for the various events in [MessagePoller]'s polling loop.
  *
- * @param pollerName Will be added as a prefix to all logs, to distinguish between different
- *   `MessagePoller`s. If passing `null` here, no prefix will be added.
+ * @param pollerName Will be added as a field to all logs in the context of the poller, so you can
+ *   distinguish between logs from different pollers. The log field key is `"pollerName"`. If you
+ *   set this to `null`, no log field will be added.
  * @param logger Defaults to [MessagePoller]'s logger, so the logger name will show as:
  *   `no.liflig.messaging.MessagePoller`. If you want a different logger name, you can construct
  *   your own logger (using [no.liflig.logging.getLogger]) and pass it here.
@@ -92,34 +110,66 @@ public interface MessagePollerObserver {
  *   which tries to include the message as raw JSON, but checks that it's valid JSON first.
  */
 public open class DefaultMessagePollerObserver(
-    pollerName: String? = "MessagePoller",
+    protected val pollerName: String? = "MessagePoller",
     protected val logger: Logger = MessagePoller.logger,
     protected val loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
 ) : MessagePollerObserver {
-  protected val logPrefix: String = if (pollerName != null) "[${pollerName}] " else ""
-
   override fun onPollerStartup() {
-    logger.info { "${logPrefix}Starting message polling" }
+    logger.info { "Starting message poller" }
   }
 
   override fun onPoll(messages: List<Message>) {
     if (messages.isNotEmpty()) {
-      logger.info { "${logPrefix}Received ${messages.size} messages from queue" }
+      logger.info {
+        "Received ${messages.size} ${if (messages.size == 1) "message" else "messages"} from queue"
+      }
     }
   }
 
   override fun onPollException(exception: Throwable) {
     logger.error(exception) {
-      "${logPrefix}Failed to poll messages. Retrying in ${MessagePoller.POLLER_RETRY_TIMEOUT.inWholeSeconds} seconds"
+      "Failed to poll messages. Retrying in ${MessagePoller.POLLER_RETRY_TIMEOUT.inWholeSeconds} seconds"
     }
   }
 
   override fun onPollerShutdown() {
-    logger.info { "${logPrefix}Shutting down message poller" }
+    logger.info { "Shutting down message poller" }
   }
 
   override fun onPollerThreadStopped(cause: Throwable?) {
-    logger.info(cause) { "${logPrefix}Message poller thread stopped" }
+    logger.info(cause) { "Message poller thread stopped" }
+  }
+
+  override fun onMessageProcessing(message: Message) {
+    logger.info {
+      addMessageBodyToLog("queueMessage", message.body, loggingMode)
+      "Processing message from queue"
+    }
+  }
+
+  override fun onMessageSuccess(message: Message) {
+    logger.info {
+      addMessageBodyToLog("queueMessage", message.body, loggingMode)
+      "Successfully processed message. Deleting from queue"
+    }
+  }
+
+  override fun onMessageFailure(message: Message, result: ProcessingResult.Failure) {
+    logger.at(level = result.severity, cause = result.cause) {
+      addMessageBodyToLog("queueMessage", message.body, loggingMode)
+      if (result.retry) {
+        "Message processing failed. Will be retried from queue"
+      } else {
+        "Message processing failed, with retry disabled. Deleting message from queue"
+      }
+    }
+  }
+
+  override fun onMessageException(message: Message, exception: Throwable) {
+    logger.error(exception) {
+      addMessageBodyToLog("queueMessage", message.body, loggingMode)
+      "Message processing failed unexpectedly. Will be retried from queue"
+    }
   }
 
   override fun <ReturnT> wrapMessageProcessing(
@@ -130,35 +180,11 @@ public open class DefaultMessagePollerObserver(
     return withLoggingContext(field("queueMessageId", message.id), block = messageProcessingBlock)
   }
 
-  override fun onMessageProcessing(message: Message) {
-    logger.info {
-      addMessageBodyToLog("queueMessage", message.body, loggingMode)
-      "${logPrefix}Processing message from queue"
+  override fun <ReturnT> wrapPoller(pollerBlock: () -> ReturnT): ReturnT {
+    if (pollerName == null) {
+      return pollerBlock()
     }
-  }
 
-  override fun onMessageSuccess(message: Message) {
-    logger.info {
-      addMessageBodyToLog("queueMessage", message.body, loggingMode)
-      "${logPrefix}Successfully processed message. Deleting from queue"
-    }
-  }
-
-  override fun onMessageFailure(message: Message, result: ProcessingResult.Failure) {
-    logger.at(level = result.severity, cause = result.cause) {
-      addMessageBodyToLog("queueMessage", message.body, loggingMode)
-      if (result.retry) {
-        "${logPrefix}Message processing failed. Will be retried from queue"
-      } else {
-        "${logPrefix}Message processing failed, with retry disabled. Deleting message from queue"
-      }
-    }
-  }
-
-  override fun onMessageException(message: Message, exception: Throwable) {
-    logger.error(exception) {
-      addMessageBodyToLog("queueMessage", message.body, loggingMode)
-      "${logPrefix}Message processing failed unexpectedly. Will be retried from queue"
-    }
+    return withLoggingContext(field("pollerName", pollerName), block = pollerBlock)
   }
 }

@@ -4,9 +4,9 @@ package no.liflig.messaging.queue
 
 import java.time.Duration
 import java.util.UUID
-import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.concurrent.read
-import kotlin.concurrent.write
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 import no.liflig.messaging.Message
 
 /**
@@ -34,7 +34,7 @@ public class MockQueue : Queue {
   public val failedMessages: MutableList<Message> = mutableListOf()
 
   /** Read/write lock, to synchronize reads and writes to the different message lists. */
-  private val lock = ReentrantReadWriteLock()
+  internal val lock: Lock = ReentrantLock()
 
   override fun send(
       messageBody: String,
@@ -42,7 +42,7 @@ public class MockQueue : Queue {
       systemAttributes: Map<String, String>,
       delay: Duration?
   ) {
-    lock.write {
+    lock.withLock {
       sentMessages.add(
           Message(
               id = UUID.randomUUID().toString(),
@@ -56,14 +56,14 @@ public class MockQueue : Queue {
   }
 
   override fun poll(): List<Message> {
-    lock.read {
+    lock.withLock {
       // Copy the list, so the list is not modified by a different thread concurrently
       return ArrayList(sentMessages)
     }
   }
 
   override fun delete(message: Message) {
-    lock.write {
+    lock.withLock {
       /**
        * We may get a race condition when calling [clear], in the following case:
        * - MessagePoller calls poll(), getting a copy of [sentMessages]
@@ -82,7 +82,7 @@ public class MockQueue : Queue {
   }
 
   override fun retry(message: Message) {
-    lock.write {
+    lock.withLock {
       /** Same logic as [delete]. */
       val removed = sentMessages.remove(message)
       if (removed) {
@@ -101,14 +101,14 @@ public class MockQueue : Queue {
    * ```
    */
   public fun hasProcessed(messageCount: Int): Boolean {
-    lock.read {
+    lock.withLock {
       return processedMessages.size == messageCount
     }
   }
 
   /** Checks if the queue has the given count of outgoing messages (from [send]). */
   public fun hasSent(messageCount: Int): Boolean {
-    lock.read {
+    lock.withLock {
       return sentMessages.size == messageCount
     }
   }
@@ -120,7 +120,7 @@ public class MockQueue : Queue {
    *   when we expect there to be an outgoing message).
    */
   public fun getSentMessage(): Message {
-    lock.read {
+    lock.withLock {
       return sentMessages.lastOrNull()
           ?: throw IllegalStateException("Expected to find sent message on queue, but found none")
     }
@@ -128,7 +128,7 @@ public class MockQueue : Queue {
 
   /** Checks if the queue has the given count of failed messages (see [failedMessages]). */
   public fun hasFailed(messageCount: Int): Boolean {
-    lock.read {
+    lock.withLock {
       return failedMessages.size == messageCount
     }
   }
@@ -140,14 +140,14 @@ public class MockQueue : Queue {
    *   when we expect there to be an outgoing message).
    */
   public fun getFailedMessage(): Message {
-    lock.read {
+    lock.withLock {
       return failedMessages.lastOrNull()
           ?: throw IllegalStateException("Expected to find failed message on queue, but found none")
     }
   }
 
   public fun clear() {
-    lock.write {
+    lock.withLock {
       sentMessages.clear()
       processedMessages.clear()
       failedMessages.clear()
