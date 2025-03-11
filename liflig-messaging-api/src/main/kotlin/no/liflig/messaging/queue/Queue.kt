@@ -77,7 +77,8 @@ public interface Queue {
  *   is included in [logFields], logged when the exception is passed to `liflig-logging`.
  * @param logFields See [no.liflig.logging.ExceptionWithLogFields].
  */
-public class MessageSendingException(
+public class MessageSendingException
+internal constructor(
     override val message: String,
     override val cause: Throwable,
     logFields: List<LogField>,
