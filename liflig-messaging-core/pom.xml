@@ -11,6 +11,7 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
+  <artifactId>liflig-messaging-core</artifactId>
   <description>
     Provides Queue, Topic and MessageProcessor interfaces, as well as a MessagePoller class for
     polling messages from a queue.
@@ -19,6 +20,7 @@
   <properties>
     <maven.deploy.skip>false</maven.deploy.skip>
   </properties>
+
   <dependencies>
     <!--    Test-->
     <dependency>
@@ -27,6 +29,4 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-
-  <artifactId>liflig-messaging-api</artifactId>
 </project>

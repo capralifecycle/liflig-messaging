@@ -5,8 +5,8 @@ applications that process events asynchronously.
 
 The library is split into modules:
 
-- `liflig-messaging-api` provides the `Queue`, `Topic` and `MessageProcessor` interfaces, as well as
-  the `MessagePoller` class for polling messages from a queue.
+- `liflig-messaging-core` provides the `Queue`, `Topic` and `MessageProcessor` interfaces, as well
+  as the `MessagePoller` class for polling messages from a queue.
 - `liflig-messaging-awssdk` implements the `Queue` interface for AWS SQS and the `Topic` interface
   for AWS SNS, using the AWS SDK.
 - `liflig-messaging-sqs-lambda` provides a function for processing messages in AWS Lambda functions
@@ -138,7 +138,7 @@ class ExampleEventSender(
 
 ### Publishing to a message topic
 
-The `Topic` interface from `liflig-messaging-api` represents a pub-sub message topic.
+The `Topic` interface from `liflig-messaging-core` represents a pub-sub message topic.
 `liflig-messaging-awssdk` provides `SnsTopic`, an implementation of this interface for AWS SNS
 (Simple Notification Service).
 
@@ -160,13 +160,13 @@ class ExampleEventPublisher(
 
 We use Maven as the example build system here.
 
-First, add the core `api` module:
+First, add the `core` module:
 
 <!-- @formatter:off -->
 ```xml
 <dependency>
   <groupId>no.liflig</groupId>
-  <artifactId>liflig-messaging-api</artifactId>
+  <artifactId>liflig-messaging-core</artifactId>
   <version>${liflig-messaging.version}</version>
 </dependency>
 ```

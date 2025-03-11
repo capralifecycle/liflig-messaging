@@ -44,7 +44,7 @@
   <dependencies>
     <dependency>
       <groupId>no.liflig</groupId>
-      <artifactId>liflig-messaging-api</artifactId>
+      <artifactId>liflig-messaging-core</artifactId>
     </dependency>
 
     <!-- AWS -->
@@ -56,7 +56,8 @@
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>sns</artifactId>
     </dependency>
-    <!--  Test-->
+
+    <!--  Test -->
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>localstack</artifactId>
@@ -68,8 +69,5 @@
       <artifactId>awaitility</artifactId>
       <scope>test</scope>
     </dependency>
-
-
   </dependencies>
-
 </project>

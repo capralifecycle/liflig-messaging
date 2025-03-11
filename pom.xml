@@ -22,6 +22,12 @@
     for applications that process events asynchronously.
   </description>
 
+  <modules>
+    <module>liflig-messaging-core</module>
+    <module>liflig-messaging-awssdk</module>
+    <module>liflig-messaging-sqs-lambda</module>
+  </modules>
+
   <licenses>
     <license>
       <name>Apache-2.0</name>
@@ -29,12 +35,6 @@
       <distribution>repo</distribution>
     </license>
   </licenses>
-
-  <modules>
-    <module>liflig-messaging-api</module>
-    <module>liflig-messaging-awssdk</module>
-    <module>liflig-messaging-sqs-lambda</module>
-  </modules>
 
   <organization>
     <name>Liflig</name>
@@ -83,19 +83,16 @@
         We include all libraries here in dependencyManagement, so that consumers get the right versions of these when
         including this parent POM as a POM dependency (otherwise consumers may have to specify these themselves).
       -->
-
       <dependency>
         <groupId>no.liflig</groupId>
-        <artifactId>liflig-messaging-api</artifactId>
+        <artifactId>liflig-messaging-core</artifactId>
         <version>${revision}</version>
       </dependency>
-
       <dependency>
         <groupId>no.liflig</groupId>
         <artifactId>liflig-messaging-awssdk</artifactId>
         <version>${revision}</version>
       </dependency>
-
 
       <!-- Logging -->
       <dependency>
@@ -132,7 +129,6 @@
         <artifactId>httpcore</artifactId>
         <version>${httpcomponents.version}</version>
       </dependency>
-
     </dependencies>
   </dependencyManagement>
 
@@ -156,8 +152,7 @@
       <version>${kotest.version}</version>
       <scope>test</scope>
     </dependency>
-
-    <!-- Logging -->
+    <!-- Logging for tests -->
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
@@ -244,7 +239,6 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
       </plugin>
-
 
       <!-- Plugin for enforcing proper dependency management -->
       <plugin>
