@@ -70,19 +70,10 @@
     <maven-dependency-plugin.version>3.8.1</maven-dependency-plugin.version>
     <exec-maven-plugin.version>3.5.0</exec-maven-plugin.version>
     <flatten-maven-plugin.version>1.7.0</flatten-maven-plugin.version>
-
-    <!-- Transitive dependencies (must specify these for Maven Enforcer) -->
-    <commons-codec.version>1.18.0</commons-codec.version>
-    <httpcomponents.version>4.4.16</httpcomponents.version>
-    <annotations.version>26.0.2</annotations.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
-      <!--
-        We include all libraries here in dependencyManagement, so that consumers get the right versions of these when
-        including this parent POM as a POM dependency (otherwise consumers may have to specify these themselves).
-      -->
       <dependency>
         <groupId>no.liflig</groupId>
         <artifactId>liflig-messaging-core</artifactId>
@@ -111,24 +102,6 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
-      <dependency>
-        <groupId>org.awaitility</groupId>
-        <artifactId>awaitility</artifactId>
-        <version>${awaitility.version}</version>
-        <scope>test</scope>
-      </dependency>
-
-      <!-- Transitive dependencies (must specify these for Maven Enforcer) -->
-      <dependency>
-        <groupId>commons-codec</groupId>
-        <artifactId>commons-codec</artifactId>
-        <version>${commons-codec.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.httpcomponents</groupId>
-        <artifactId>httpcore</artifactId>
-        <version>${httpcomponents.version}</version>
-      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -150,6 +123,12 @@
       <groupId>io.kotest</groupId>
       <artifactId>kotest-assertions-core-jvm</artifactId>
       <version>${kotest.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.awaitility</groupId>
+      <artifactId>awaitility</artifactId>
+      <version>${awaitility.version}</version>
       <scope>test</scope>
     </dependency>
     <!-- Logging for tests -->
@@ -265,6 +244,7 @@
         </executions>
       </plugin>
 
+      <!-- Flatten POMs, so each module does not need to depend on the parent POM -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>flatten-maven-plugin</artifactId>
