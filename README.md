@@ -110,11 +110,11 @@ class LambdaHandler(
 > In order for `handleLambdaSqsEvent` to work correctly, your handler method must return
 > `SQSBatchResponse`. And in order for that to work, you have to configure batch item failures on
 > your Lambda <-> SQS integration. In AWS CDK, you do this on the `SqsEventSource`:
+>
 > ```ts
-> myLambda.addEventSource(
->   new SqsEventSource(myQueue, {reportBatchItemFailures: true}),
-> )
+> myLambda.addEventSource(new SqsEventSource(myQueue, { reportBatchItemFailures: true }));
 > ```
+>
 > For more on the reason behind this, see the docstring on `handleLambdaSqsEvent`.
 
 ### Sending messages to a queue
@@ -162,32 +162,38 @@ We use Maven as the example build system here.
 
 First, add the core `api` module:
 
-```
+<!-- @formatter:off -->
+```xml
 <dependency>
   <groupId>no.liflig</groupId>
   <artifactId>liflig-messaging-api</artifactId>
   <version>${liflig-messaging.version}</version>
 </dependency>
 ```
+<!-- @formatter:on -->
 
 Then, add extra modules depending on your use-case:
 
 - If your application is a long-running service, and you want to use the AWS SDK implementations:
-  ```
+  <!-- @formatter:off -->
+  ```xml
   <dependency>
     <groupId>no.liflig</groupId>
     <artifactId>liflig-messaging-awssdk</artifactId>
     <version>${liflig-messaging.version}</version>
   </dependency>
   ```
+  <!-- @formatter:on -->
 - If your application is an AWS Lambda function with an SQS event source:
-  ```
+  <!-- @formatter:off -->
+  ```xml
   <dependency>
     <groupId>no.liflig</groupId>
     <artifactId>liflig-messaging-sqs-lambda</artifactId>
     <version>${liflig-messaging.version}</version>
   </dependency>
   ```
+  <!-- @formatter:on -->
 
 ## Build & Test
 
