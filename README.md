@@ -1,7 +1,7 @@
 # liflig-messaging
 
-Provides message queue and topic services, a message poller, and a message processor interface for
-applications that process events asynchronously.
+Library for applications that process messages asynchronously. Provides interfaces and
+implementations for message queues, topics, pollers and processors.
 
 The library is split into modules:
 
