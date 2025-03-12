@@ -147,7 +147,7 @@ internal class MessagePollerObserverTest {
 
       loggingContextFields.shouldContainExactlyInAnyOrder(
           field("queueMessageId", queueMessageId),
-          field("pollerName", pollerName),
+          field("messagePollerName", pollerName),
       )
     }
   }

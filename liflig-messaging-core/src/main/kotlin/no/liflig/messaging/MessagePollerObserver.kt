@@ -100,9 +100,9 @@ public interface MessagePollerObserver {
  * Default implementation of [MessagePollerObserver], using `liflig-logging` to log descriptive
  * messages for the various events in [MessagePoller]'s polling loop.
  *
- * @param pollerName Will be added as a field to all logs in the context of the poller, so you can
- *   distinguish between logs from different pollers. The log field key is `"pollerName"`. If you
- *   set this to `null`, no log field will be added.
+ * @param pollerName Will be added as a field to all logs in the context of the message poller, so
+ *   you can distinguish between logs from different pollers. The log field key is
+ *   `"messagePollerName"`. If you set this to `null`, no log field will be added.
  * @param logger Defaults to [MessagePoller]'s logger, so the logger name will show as:
  *   `no.liflig.messaging.MessagePoller`. If you want a different logger name, you can construct
  *   your own logger (using [no.liflig.logging.getLogger]) and pass it here.
@@ -185,6 +185,6 @@ public open class DefaultMessagePollerObserver(
       return pollerBlock()
     }
 
-    return withLoggingContext(field("pollerName", pollerName), block = pollerBlock)
+    return withLoggingContext(field("messagePollerName", pollerName), block = pollerBlock)
   }
 }

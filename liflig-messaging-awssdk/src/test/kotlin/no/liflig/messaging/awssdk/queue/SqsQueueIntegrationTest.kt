@@ -35,7 +35,7 @@ internal class SqsQueueIntegrationTest {
     localstack.start()
     sqsClient = localstack.createSqsClient()
     queueUrl = sqsClient.createQueue { it.queueName("test-queue") }.queueUrl()
-    queue = SqsQueue(sqsClient, queueUrl, loggingMode = MessageLoggingMode.DISABLED)
+    queue = SqsQueue(sqsClient, queueUrl)
 
     observer = TestMessagePollerObserver(queue.observer.loggingMode ?: MessageLoggingMode.JSON)
     messagePoller = MessagePoller(queue, messageProcessor, observer = observer)
