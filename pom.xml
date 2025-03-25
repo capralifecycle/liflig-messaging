@@ -43,7 +43,7 @@
 
   <properties>
     <!-- To avoid deploying the parent. Must be overridden in submodules that should be deployed -->
-    <maven.deploy.skip>true</maven.deploy.skip>
+    <maven.deploy.skip>false</maven.deploy.skip>
 
     <major-version>0</major-version>
     <revision>${major-version}.local-SNAPSHOT</revision>
