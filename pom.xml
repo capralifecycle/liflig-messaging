@@ -43,7 +43,7 @@
 
   <properties>
     <!-- To avoid deploying the parent. Must be overridden in submodules that should be deployed -->
-    <maven.deploy.skip>false</maven.deploy.skip>
+    <maven.deploy.skip>true</maven.deploy.skip>
 
     <major-version>0</major-version>
     <revision>${major-version}.local-SNAPSHOT</revision>
@@ -251,7 +251,13 @@
         <version>${flatten-maven-plugin.version}</version>
         <configuration>
           <updatePomFile>true</updatePomFile>
-          <flattenMode>resolveCiFriendliesOnly</flattenMode>
+          <!--
+            The "oss" (Open-Source Software) flatten mode resolves <parent> in child POMs, so
+            that we don't have to publish the parent POM alongside the library. But unlike the
+            default flatten mode, it keeps certain optional elements, such as <description>,
+            which we want to include in the published POMs.
+          -->
+          <flattenMode>oss</flattenMode>
         </configuration>
         <executions>
           <execution>
