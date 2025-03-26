@@ -2,6 +2,8 @@ package no.liflig.messaging
 
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import kotlin.concurrent.withLock
 import no.liflig.logging.LogField
 import no.liflig.logging.field
@@ -20,17 +22,13 @@ import org.junit.jupiter.api.TestInstance
 /** Test if MessagePoller correctly invokes the observer */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 internal class MessagePollerObserverTest {
-  lateinit var queue: MockQueue
-  lateinit var testProcessor: TestMessageProcessor
-  lateinit var observer: TestMessagePollerObserver
-  lateinit var messagePoller: MessagePoller
+  val queue = MockQueue()
+  val testProcessor = TestMessageProcessor()
+  val observer = TestMessagePollerObserver()
+  val messagePoller = MessagePoller(queue, testProcessor, observer = observer)
 
   @BeforeAll
   fun setup() {
-    queue = MockQueue()
-    testProcessor = TestMessageProcessor()
-    observer = TestMessagePollerObserver()
-    messagePoller = MessagePoller(queue, testProcessor, observer = observer)
     messagePoller.start()
   }
 
@@ -151,4 +149,41 @@ internal class MessagePollerObserverTest {
       )
     }
   }
+
+  @Test
+  fun `QuietMessagePollerObserver logs nothing for successful message processing`() {
+    val queue = MockQueue()
+
+    MessagePoller(
+            queue,
+            testProcessor,
+            observer = QuietMessagePollerObserver(pollerName = "QuietMessagePoller"),
+        )
+        .use { poller ->
+          poller.start()
+
+          val logOutput = captureStdout {
+            queue.send(TestMessage.SUCCESS)
+            await().until { queue.sentMessages.isEmpty() }
+          }
+
+          logOutput shouldBe ""
+        }
+  }
+}
+
+private inline fun captureStdout(block: () -> Unit): String {
+  val originalStdout = System.out
+
+  // We redirect System.out to our own output stream, so we can capture the log output
+  val outputStream = ByteArrayOutputStream()
+  System.setOut(PrintStream(outputStream))
+
+  try {
+    block()
+  } finally {
+    System.setOut(originalStdout)
+  }
+
+  return outputStream.toString("UTF-8")
 }

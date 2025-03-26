@@ -100,6 +100,13 @@ public interface MessagePollerObserver {
  * Default implementation of [MessagePollerObserver], using `liflig-logging` to log descriptive
  * messages for the various events in [MessagePoller]'s polling loop.
  *
+ * [wrapMessageProcessing] uses [no.liflig.logging.withLoggingContext] to add a `queueMessageId`
+ * field to all logs in the scope of processing the message, so you can trace the logs for a
+ * specific message.
+ *
+ * If you want a quieter observer that only logs in case of failure, you may want to use
+ * [QuietMessagePollerObserver] instead.
+ *
  * @param pollerName Will be added as a field to all logs in the context of the message poller, so
  *   you can distinguish between logs from different pollers. The log field key is
  *   `"messagePollerName"`. If you set this to `null`, no log field will be added.
@@ -187,4 +194,38 @@ public open class DefaultMessagePollerObserver(
 
     return withLoggingContext(field("messagePollerName", pollerName), block = pollerBlock)
   }
+}
+
+/**
+ * [MessagePollerObserver] implementation that only logs in the cases where the poller or message
+ * processing fails. In other words, a queue message that is polled and processed successfully will
+ * not emit any logs from the observer.
+ *
+ * Extends [DefaultMessagePollerObserver], but overrides [onPoll], [onMessageProcessing] and
+ * [onMessageSuccess] to do nothing.
+ *
+ * @param pollerName Will be added as a field to all logs in the context of the message poller, so
+ *   you can distinguish between logs from different pollers. The log field key is
+ *   `"messagePollerName"`. If you set this to `null`, no log field will be added.
+ * @param logger Defaults to [MessagePoller]'s logger, so the logger name will show as:
+ *   `no.liflig.messaging.MessagePoller`. If you want a different logger name, you can construct
+ *   your own logger (using [no.liflig.logging.getLogger]) and pass it here.
+ * @param loggingMode Controls how message bodies are logged. Defaults to [MessageLoggingMode.JSON],
+ *   which tries to include the message as raw JSON, but checks that it's valid JSON first.
+ */
+public open class QuietMessagePollerObserver(
+    pollerName: String? = "MessagePoller",
+    logger: Logger = MessagePoller.logger,
+    loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
+) :
+    DefaultMessagePollerObserver(
+        pollerName = pollerName,
+        logger = logger,
+        loggingMode = loggingMode,
+    ) {
+  override fun onPoll(messages: List<Message>) {}
+
+  override fun onMessageProcessing(message: Message) {}
+
+  override fun onMessageSuccess(message: Message) {}
 }
