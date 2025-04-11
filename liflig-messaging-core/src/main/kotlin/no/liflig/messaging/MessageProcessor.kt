@@ -10,7 +10,7 @@ import no.liflig.logging.LogLevel
  * [Queue][no.liflig.messaging.queue.Queue]. The message poller will then poll messages from the
  * queue service and call your message processor with each message.
  */
-public interface MessageProcessor {
+public fun interface MessageProcessor {
   public fun process(message: Message): ProcessingResult
 }
 
