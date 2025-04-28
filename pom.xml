@@ -55,7 +55,7 @@
     <slf4j.version>2.0.17</slf4j.version>
     <logback.version>1.5.18</logback.version>
     <logstash-logback-encoder.version>8.1</logstash-logback-encoder.version>
-    <liflig-logging.version>2.20250427.204408</liflig-logging.version>
+    <liflig-logging.version>2.20250428.052159</liflig-logging.version>
 
     <!-- Serialization -->
     <kotlinx-serialization.version>1.8.0</kotlinx-serialization.version>
