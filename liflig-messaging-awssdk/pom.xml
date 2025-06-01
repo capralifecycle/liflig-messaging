@@ -24,7 +24,7 @@
     <aws-sdk.version>2.31.52</aws-sdk.version>
 
     <!-- Test-->
-    <localstack.version>1.21.0</localstack.version>
+    <localstack.version>1.21.1</localstack.version>
 
     <!-- Transitive dependencies (must specify these for Maven Enforcer) -->
     <commons-codec.version>1.18.0</commons-codec.version>
