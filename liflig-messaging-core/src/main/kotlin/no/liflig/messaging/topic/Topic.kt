@@ -16,7 +16,7 @@ public interface Topic {
   public fun publish(message: String)
 
   public companion object {
-    internal val logger = getLogger {}
+    internal val logger = getLogger()
   }
 }
 

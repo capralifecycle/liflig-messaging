@@ -151,7 +151,7 @@ public class MessagePoller(
   }
 
   internal companion object {
-    internal val logger = getLogger {}
+    internal val logger = getLogger()
 
     /**
      * We sleep for this duration if we encounter an exception in [runPollLoop]. This is to avoid an

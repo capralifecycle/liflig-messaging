@@ -46,6 +46,6 @@ internal class SqsBackoffService(
   }
 
   internal companion object {
-    internal val logger = getLogger {}
+    internal val logger = getLogger()
   }
 }

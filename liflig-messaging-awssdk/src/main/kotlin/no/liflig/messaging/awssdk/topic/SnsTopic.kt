@@ -47,6 +47,6 @@ public class SnsTopic(
   }
 
   internal companion object {
-    internal val logger = getLogger {}
+    internal val logger = getLogger()
   }
 }

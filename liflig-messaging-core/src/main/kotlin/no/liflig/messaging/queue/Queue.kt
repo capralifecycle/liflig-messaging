@@ -65,7 +65,7 @@ public interface Queue {
     get() = null
 
   public companion object {
-    internal val logger = getLogger {}
+    internal val logger = getLogger()
   }
 }
 

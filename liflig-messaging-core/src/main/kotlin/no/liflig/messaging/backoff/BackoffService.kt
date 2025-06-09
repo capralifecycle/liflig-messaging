@@ -28,6 +28,6 @@ public interface BackoffService {
       return nextVisibilityTimeout.toInt()
     }
 
-    internal val logger = getLogger {}
+    internal val logger = getLogger()
   }
 }

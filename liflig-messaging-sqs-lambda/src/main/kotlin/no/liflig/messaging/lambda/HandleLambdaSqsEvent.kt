@@ -11,7 +11,7 @@ import no.liflig.messaging.MessagePollerObserver
 import no.liflig.messaging.MessageProcessor
 import no.liflig.messaging.ProcessingResult
 
-private val log = getLogger {}
+private val log = getLogger()
 
 /**
  * Iterates over queue messages in the given AWS Lambda SQS event, and passes them to the given
