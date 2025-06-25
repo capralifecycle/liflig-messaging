@@ -12,6 +12,7 @@ import no.liflig.messaging.backoff.BackoffService
 import no.liflig.messaging.queue.DefaultQueueObserver
 import no.liflig.messaging.queue.Queue
 import no.liflig.messaging.queue.QueueObserver
+import no.liflig.messaging.queue.ResponseMessageId
 import software.amazon.awssdk.services.sqs.SqsClient
 import software.amazon.awssdk.services.sqs.model.Message as SQSMessage
 import software.amazon.awssdk.services.sqs.model.MessageAttributeValue
@@ -56,7 +57,7 @@ public class SqsQueue(
       customAttributes: Map<String, String>,
       systemAttributes: Map<String, String>,
       delay: Duration?
-  ) {
+  ): ResponseMessageId {
     val response =
         try {
           val messageAttributes =
@@ -86,6 +87,7 @@ public class SqsQueue(
         }
 
     observer.onSendSuccess(messageId = response.messageId(), messageBody = messageBody)
+    return ResponseMessageId(response.messageId())
   }
 
   override fun delete(message: Message) {

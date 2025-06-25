@@ -26,7 +26,7 @@ public interface Queue {
       customAttributes: Map<String, String> = emptyMap(),
       systemAttributes: Map<String, String> = emptyMap(),
       delay: Duration? = null
-  )
+  ): ResponseMessageId
 
   /**
    * Polls the queue for available messages.
@@ -83,3 +83,8 @@ internal constructor(
     override val cause: Throwable,
     logFields: List<LogField>,
 ) : ExceptionWithLogFields(logFields)
+
+@JvmInline
+public value class ResponseMessageId(public val value: String) {
+  override fun toString(): String = value
+}

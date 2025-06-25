@@ -41,19 +41,20 @@ public class MockQueue : Queue {
       customAttributes: Map<String, String>,
       systemAttributes: Map<String, String>,
       delay: Duration?
-  ) {
-    lock.withLock {
-      sentMessages.add(
-          Message(
-              id = UUID.randomUUID().toString(),
-              body = messageBody,
-              systemAttributes = systemAttributes,
-              customAttributes = customAttributes,
-              receiptHandle = UUID.randomUUID().toString(),
-          ),
-      )
-    }
-  }
+  ): ResponseMessageId =
+      lock.withLock {
+        Message(
+                id = UUID.randomUUID().toString(),
+                body = messageBody,
+                systemAttributes = systemAttributes,
+                customAttributes = customAttributes,
+                receiptHandle = UUID.randomUUID().toString(),
+            )
+            .let {
+              sentMessages.add(it)
+              ResponseMessageId(it.id)
+            }
+      }
 
   override fun poll(): List<Message> {
     lock.withLock {
