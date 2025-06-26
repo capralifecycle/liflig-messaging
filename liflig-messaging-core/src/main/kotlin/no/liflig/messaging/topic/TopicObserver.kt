@@ -22,7 +22,7 @@ public interface TopicObserver {
    *
    * This method returns [Nothing], so it _must_ throw. You can either re-throw the given exception,
    * or wrap it in another exception to provide extra context.
-   * [DefaultTopicObserver.onPublishException] wraps the exception in [TopicPublishException].
+   * [DefaultTopicObserver.onPublishException] wraps the exception in [MessagePublishingException].
    */
   public fun onPublishException(exception: Throwable, messageBody: String): Nothing
 }
@@ -70,7 +70,7 @@ public open class DefaultTopicObserver(
           }
         }
 
-    throw TopicPublishException(
+    throw MessagePublishingException(
         "Failed to publish message to ${topicName}",
         cause = exception,
         logFields,

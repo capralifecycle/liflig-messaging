@@ -16,7 +16,7 @@ public interface Topic {
   /**
    * @return The ID of the published message. In the SNS implementation, this uses the
    *   [`MessageId` returned by AWS in the response](https://docs.aws.amazon.com/sns/latest/api/API_Publish.html#API_Publish_ResponseElements).
-   * @throws TopicPublishException If we failed to publish the message.
+   * @throws MessagePublishingException If we failed to publish the message.
    */
   public fun publish(message: String): MessageId
 
@@ -33,7 +33,7 @@ public interface Topic {
  *   message is included in [logFields], logged when the exception is passed to `liflig-logging`.
  * @param logFields See [no.liflig.logging.ExceptionWithLogFields].
  */
-public class TopicPublishException(
+public class MessagePublishingException(
     override val message: String,
     override val cause: Throwable?,
     logFields: List<LogField>,
