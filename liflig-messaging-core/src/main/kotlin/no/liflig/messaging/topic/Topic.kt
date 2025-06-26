@@ -33,9 +33,8 @@ public interface Topic {
  *   message is included in [logFields], logged when the exception is passed to `liflig-logging`.
  * @param logFields See [no.liflig.logging.ExceptionWithLogFields].
  */
-public class TopicPublishException
-internal constructor(
+public class TopicPublishException(
     override val message: String,
-    override val cause: Throwable,
+    override val cause: Throwable?,
     logFields: List<LogField>,
 ) : ExceptionWithLogFields(logFields)
