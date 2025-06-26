@@ -8,8 +8,8 @@ import no.liflig.logging.rawJsonField
 /**
  * The various default observer classes ([DefaultMessagePollerObserver],
  * [DefaultQueueObserver][no.liflig.messaging.queue.DefaultQueueObserver],
- * [DefaultTopicObserver][no.liflig.messaging.topic.DefaultTopicObserver]) take this enum as an
- * argument to control how message bodies are logged.
+ * [DefaultTopicObserver][no.liflig.messaging.topic.DefaultTopicObserver]) take this enum as a
+ * parameter to control how message bodies are logged.
  */
 public enum class MessageLoggingMode {
   /** Don't log message bodies (use this if messages may contain sensitive data). */

@@ -6,6 +6,7 @@ import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import no.liflig.logging.getLogger
 import no.liflig.messaging.DefaultMessagePollerObserver
 import no.liflig.messaging.Message
+import no.liflig.messaging.MessageId
 import no.liflig.messaging.MessageLoggingMode
 import no.liflig.messaging.MessagePollerObserver
 import no.liflig.messaging.MessageProcessor
@@ -82,7 +83,7 @@ public fun handleLambdaSqsEvent(
           is ProcessingResult.Failure -> {
             observer.onMessageFailure(message, result)
             if (result.retry) {
-              failedMessages.add(BatchItemFailure(message.id))
+              failedMessages.add(BatchItemFailure(message.id.value))
             } else {
               // Do nothing here - not adding the message to failedMessages means it will be deleted
             }
@@ -90,7 +91,7 @@ public fun handleLambdaSqsEvent(
         }
       } catch (e: Exception) {
         observer.onMessageException(message, e)
-        failedMessages.add(BatchItemFailure(message.id))
+        failedMessages.add(BatchItemFailure(message.id.value))
       }
     }
   }
@@ -120,7 +121,7 @@ internal fun lambdaSqsMessageToInternalFormat(sqsMessage: SQSEvent.SQSMessage): 
       }
 
   return Message(
-      id = sqsMessage.messageId,
+      id = MessageId(sqsMessage.messageId),
       body = sqsMessage.body,
       receiptHandle = sqsMessage.receiptHandle,
       systemAttributes = sqsMessage.attributes ?: emptyMap(),

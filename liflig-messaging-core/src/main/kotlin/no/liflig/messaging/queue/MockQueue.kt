@@ -8,6 +8,7 @@ import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import no.liflig.messaging.Message
+import no.liflig.messaging.MessageId
 
 /**
  * Mock implementation of [Queue] for tests and local development. There are generally two types of
@@ -41,20 +42,20 @@ public class MockQueue : Queue {
       customAttributes: Map<String, String>,
       systemAttributes: Map<String, String>,
       delay: Duration?
-  ): ResponseMessageId =
-      lock.withLock {
-        Message(
-                id = UUID.randomUUID().toString(),
-                body = messageBody,
-                systemAttributes = systemAttributes,
-                customAttributes = customAttributes,
-                receiptHandle = UUID.randomUUID().toString(),
-            )
-            .let {
-              sentMessages.add(it)
-              ResponseMessageId(it.id)
-            }
-      }
+  ): MessageId {
+    lock.withLock {
+      val message =
+          Message(
+              id = MessageId(UUID.randomUUID().toString()),
+              body = messageBody,
+              systemAttributes = systemAttributes,
+              customAttributes = customAttributes,
+              receiptHandle = UUID.randomUUID().toString(),
+          )
+      sentMessages.add(message)
+      return message.id
+    }
+  }
 
   override fun poll(): List<Message> {
     lock.withLock {

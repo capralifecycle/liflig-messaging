@@ -2,12 +2,16 @@
 
 package no.liflig.messaging.topic
 
+import java.util.UUID
+import no.liflig.messaging.MessageId
+
 /** Mock implementation of [Topic] for tests and local development. */
 public class MockTopic : Topic {
   public val publishedMessages: MutableList<String> = mutableListOf()
 
-  override fun publish(message: String) {
+  override fun publish(message: String): MessageId {
     publishedMessages.add(message)
+    return MessageId(UUID.randomUUID().toString()) // Random mock message ID
   }
 
   /**

@@ -13,7 +13,7 @@ internal class MessageTest {
     val sentTimestamp = Instant.parse("2025-03-14T13:54:31Z")
     val message =
         Message(
-                id = "72dc8184-30e5-4575-9834-060b3dd60e7c",
+                id = MessageId("72dc8184-30e5-4575-9834-060b3dd60e7c"),
                 body = """{"test":true}""",
                 systemAttributes = emptyMap(),
                 customAttributes = emptyMap(),
