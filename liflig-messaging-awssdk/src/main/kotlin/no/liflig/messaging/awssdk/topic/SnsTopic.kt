@@ -3,6 +3,7 @@
 package no.liflig.messaging.awssdk.topic
 
 import no.liflig.logging.getLogger
+import no.liflig.messaging.MessageId
 import no.liflig.messaging.MessageLoggingMode
 import no.liflig.messaging.topic.DefaultTopicObserver
 import no.liflig.messaging.topic.Topic
@@ -35,7 +36,7 @@ public class SnsTopic(
       observer = DefaultTopicObserver(topicName = name, topicArn = topicArn, logger, loggingMode),
   )
 
-  override fun publish(message: String) {
+  override fun publish(message: String): MessageId {
     val response =
         try {
           snsClient.publish { req -> req.topicArn(topicArn).message(message) }
@@ -44,6 +45,7 @@ public class SnsTopic(
         }
 
     observer.onPublishSuccess(messageId = response.messageId(), messageBody = message)
+    return MessageId(response.messageId())
   }
 
   internal companion object {

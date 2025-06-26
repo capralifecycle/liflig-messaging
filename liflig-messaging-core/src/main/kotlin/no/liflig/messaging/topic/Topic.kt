@@ -3,6 +3,7 @@ package no.liflig.messaging.topic
 import no.liflig.logging.ExceptionWithLogFields
 import no.liflig.logging.LogField
 import no.liflig.logging.getLogger
+import no.liflig.messaging.MessageId
 
 /**
  * A message topic (a.k.a. event bus) that producers can publish messages to.
@@ -12,8 +13,12 @@ import no.liflig.logging.getLogger
  * - [MockTopic] for tests
  */
 public interface Topic {
-  /** @throws TopicPublishException If we failed to publish the message. */
-  public fun publish(message: String)
+  /**
+   * @return The ID of the published message. In the SNS implementation, this uses the
+   *   [`MessageId` returned by AWS in the response](https://docs.aws.amazon.com/sns/latest/api/API_Publish.html#API_Publish_ResponseElements).
+   * @throws TopicPublishException If we failed to publish the message.
+   */
+  public fun publish(message: String): MessageId
 
   public companion object {
     internal val logger = getLogger()

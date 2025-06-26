@@ -5,6 +5,7 @@ import no.liflig.logging.ExceptionWithLogFields
 import no.liflig.logging.LogField
 import no.liflig.logging.getLogger
 import no.liflig.messaging.Message
+import no.liflig.messaging.MessageId
 
 /**
  * A message queue that you can send messages to or poll messages from.
@@ -17,8 +18,15 @@ public interface Queue {
   /**
    * @param customAttributes See [Message.customAttributes].
    * @param systemAttributes See [Message.systemAttributes].
-   * @param delay Set this to delay sending the message until after the given duration. Maximum
-   *   allowed value in SQS is 15 minutes. This argument is ignored in [MockQueue].
+   * @param delay Set this to delay sending the message until after the given duration.
+   *
+   *   In the SQS implementation, the maximum delay is 15 minutes. It uses the
+   *   [`DelaySeconds` request parameter](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SendMessage.html#API_SendMessage_RequestParameters).
+   *
+   *   This parameter is ignored by [MockQueue].
+   *
+   * @return The ID of the sent message. In the SQS implementation, this uses the
+   *   [`MessageId` returned by AWS in the response](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SendMessage.html#API_SendMessage_ResponseElements).
    * @throws MessageSendingException If we failed to send the message.
    */
   public fun send(
@@ -26,7 +34,7 @@ public interface Queue {
       customAttributes: Map<String, String> = emptyMap(),
       systemAttributes: Map<String, String> = emptyMap(),
       delay: Duration? = null
-  ): ResponseMessageId
+  ): MessageId
 
   /**
    * Polls the queue for available messages.
@@ -83,8 +91,3 @@ internal constructor(
     override val cause: Throwable,
     logFields: List<LogField>,
 ) : ExceptionWithLogFields(logFields)
-
-@JvmInline
-public value class ResponseMessageId(public val value: String) {
-  override fun toString(): String = value
-}

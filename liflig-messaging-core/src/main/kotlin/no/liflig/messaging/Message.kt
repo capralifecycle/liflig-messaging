@@ -3,7 +3,7 @@ package no.liflig.messaging
 import java.time.Instant
 
 public data class Message(
-    val id: String,
+    val id: MessageId,
     val body: String,
     /**
      * In SQS, these are a predefined set of valid attribute keys:
@@ -88,4 +88,18 @@ public data class Message(
             this.systemAttributes + ("SentTimestamp" to time.toEpochMilli().toString()),
     )
   }
+}
+
+/**
+ * Unique ID of a message sent to a queue or published to a topic.
+ *
+ * In the SQS queue implementation, this is the
+ * [`MessageId` returned by AWS in the response from `SendMessage`](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SendMessage.html#API_SendMessage_ResponseElements).
+ *
+ * In the SNS topic implementation, this is the
+ * [`MessageId` returned by AWS in the response from `Publish`](https://docs.aws.amazon.com/sns/latest/api/API_Publish.html#API_Publish_ResponseElements).
+ */
+@JvmInline
+public value class MessageId(public val value: String) {
+  override fun toString(): String = value
 }

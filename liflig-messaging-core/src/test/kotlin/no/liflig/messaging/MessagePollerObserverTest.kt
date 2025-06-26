@@ -113,7 +113,7 @@ internal class MessagePollerObserverTest {
   @Test
   fun `DefaultMessagePollerObserver adds expected fields to logging context`() {
     val pollerName = "CustomPollerNameForTest"
-    val queueMessageId = "f04be04e-2dd0-488f-8ff0-be49a3ddb215"
+    val queueMessageId = MessageId("f04be04e-2dd0-488f-8ff0-be49a3ddb215")
 
     var loggingContextFields: List<LogField>? = null
 
