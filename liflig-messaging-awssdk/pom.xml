@@ -21,13 +21,13 @@
     <maven.deploy.skip>false</maven.deploy.skip>
 
     <!-- AWS-->
-    <aws-sdk.version>2.32.3</aws-sdk.version>
+    <aws-sdk.version>2.32.24</aws-sdk.version>
 
     <!-- Test-->
     <localstack.version>1.21.3</localstack.version>
 
     <!-- Transitive dependencies (must specify these for Maven Enforcer) -->
-    <commons-codec.version>1.18.0</commons-codec.version>
+    <commons-codec.version>1.19.0</commons-codec.version>
     <httpcomponents.version>4.4.16</httpcomponents.version>
   </properties>
 
