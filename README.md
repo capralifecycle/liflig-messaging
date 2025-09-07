@@ -22,9 +22,7 @@ The library is split into modules:
   - [Sending messages to a queue](#sending-messages-to-a-queue)
   - [Publishing to a message topic](#publishing-to-a-message-topic)
 - [Adding to your project](#adding-to-your-project)
-- [Build & Test](#build--test)
-- [Lint code](#lint-code)
-- [Format code](#format-code)
+- [Maintainer's guide](#maintainers-guide)
 
 ## Usage
 
@@ -154,7 +152,7 @@ class ExampleEventPublisher(
   private val eventTopic: Topic = SnsTopic(SnsClient.create(), topicArn = "..."),
 ) {
   fun publishEvent(event: ExampleEvent) {
-    eventTopic.publish(ExampleEvent().toJson())
+    eventTopic.publish(event.toJson())
   }
 }
 ```
@@ -198,19 +196,21 @@ Then, add extra modules depending on your use-case:
   ```
   <!-- @formatter:on -->
 
-## Build & Test
+## Maintainer's guide
+
+### Build & Test
 
 ```sh
 mvn clean install
 ```
 
-## Lint code
+### Lint code
 
 ```sh
 mvn spotless:check
 ```
 
-## Format code
+### Format code
 
 ```sh
 mvn spotless:apply
