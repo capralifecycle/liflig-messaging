@@ -1,7 +1,7 @@
 package no.liflig.messaging.queue
 
 import java.time.Duration
-import no.liflig.logging.ExceptionWithLogFields
+import no.liflig.logging.ExceptionWithLoggingContext
 import no.liflig.logging.LogField
 import no.liflig.logging.getLogger
 import no.liflig.messaging.Message
@@ -83,10 +83,10 @@ public interface Queue {
  *
  * @param message Note that this is the exception message, not the queue message. The queue message
  *   is included in [logFields], logged when the exception is passed to `liflig-logging`.
- * @param logFields See [no.liflig.logging.ExceptionWithLogFields].
+ * @param logFields See [no.liflig.logging.ExceptionWithLoggingContext].
  */
 public class MessageSendingException(
     override val message: String,
     override val cause: Throwable?,
-    logFields: List<LogField>,
-) : ExceptionWithLogFields(logFields)
+    logFields: Collection<LogField>,
+) : ExceptionWithLoggingContext(logFields)

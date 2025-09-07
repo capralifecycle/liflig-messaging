@@ -1,13 +1,15 @@
 package no.liflig.messaging
 
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import kotlin.concurrent.withLock
-import no.liflig.logging.LogField
-import no.liflig.logging.field
-import no.liflig.logging.getLoggingContext
+import no.liflig.logging.LoggingContext
+import no.liflig.logging.getCopyOfLoggingContext
+import no.liflig.logging.getLogger
+import no.liflig.logging.withLoggingContext
 import no.liflig.messaging.queue.MockQueue
 import no.liflig.messaging.testutils.TestMessage
 import no.liflig.messaging.testutils.TestMessagePollerObserver
@@ -18,6 +20,8 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+
+private val log = getLogger()
 
 /** Test if MessagePoller correctly invokes the observer */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -115,12 +119,12 @@ internal class MessagePollerObserverTest {
     val pollerName = "CustomPollerNameForTest"
     val queueMessageId = MessageId("f04be04e-2dd0-488f-8ff0-be49a3ddb215")
 
-    var loggingContextFields: List<LogField>? = null
+    var loggingContext: LoggingContext? = null
 
     val processor =
         object : MessageProcessor {
           override fun process(message: Message): ProcessingResult {
-            loggingContextFields = getLoggingContext()
+            loggingContext = getCopyOfLoggingContext()
             return ProcessingResult.Success
           }
         }
@@ -141,11 +145,23 @@ internal class MessagePollerObserverTest {
         )
       }
 
-      await().until { loggingContextFields != null }
+      await().until { loggingContext != null }
 
-      loggingContextFields.shouldContainExactlyInAnyOrder(
-          field("queueMessageId", queueMessageId),
-          field("messagePollerName", pollerName),
+      loggingContext.shouldNotBeNull()
+
+      val logOutput = captureStdout { withLoggingContext(loggingContext) { log.info { "Test" } } }
+
+      logOutput.shouldContain(
+          """
+            "queueMessageId":"${queueMessageId}"
+          """
+              .trimIndent(),
+      )
+      logOutput.shouldContain(
+          """
+            "messagePollerName":"${pollerName}"
+          """
+              .trimIndent(),
       )
     }
   }

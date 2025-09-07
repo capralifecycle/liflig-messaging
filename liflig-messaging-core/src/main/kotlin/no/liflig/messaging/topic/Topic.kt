@@ -1,6 +1,6 @@
 package no.liflig.messaging.topic
 
-import no.liflig.logging.ExceptionWithLogFields
+import no.liflig.logging.ExceptionWithLoggingContext
 import no.liflig.logging.LogField
 import no.liflig.logging.getLogger
 import no.liflig.messaging.MessageId
@@ -31,10 +31,10 @@ public interface Topic {
  *
  * @param message Note that this is the exception message, not the published message. The published
  *   message is included in [logFields], logged when the exception is passed to `liflig-logging`.
- * @param logFields See [no.liflig.logging.ExceptionWithLogFields].
+ * @param logFields See [no.liflig.logging.ExceptionWithLoggingContext].
  */
 public class MessagePublishingException(
     override val message: String,
     override val cause: Throwable?,
-    logFields: List<LogField>,
-) : ExceptionWithLogFields(logFields)
+    logFields: Collection<LogField>,
+) : ExceptionWithLoggingContext(logFields)
