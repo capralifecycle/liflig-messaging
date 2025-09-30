@@ -21,7 +21,7 @@
     <maven.deploy.skip>false</maven.deploy.skip>
 
     <!-- AWS-->
-    <aws-sdk.version>2.32.24</aws-sdk.version>
+    <aws-sdk.version>2.33.11</aws-sdk.version>
 
     <!-- Test-->
     <localstack.version>1.21.3</localstack.version>
