@@ -75,7 +75,7 @@ public interface MessagePollerObserver {
    */
   public fun <ReturnT> wrapMessageProcessing(
       message: Message,
-      messageProcessingBlock: () -> ReturnT
+      messageProcessingBlock: () -> ReturnT,
   ): ReturnT
 
   /**
@@ -181,7 +181,7 @@ public open class DefaultMessagePollerObserver(
 
   override fun <ReturnT> wrapMessageProcessing(
       message: Message,
-      messageProcessingBlock: () -> ReturnT
+      messageProcessingBlock: () -> ReturnT,
   ): ReturnT {
     // Puts message ID in logging context, so we can trace logs for the message
     return withLoggingContext(field("queueMessageId", message.id), block = messageProcessingBlock)

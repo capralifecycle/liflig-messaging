@@ -62,7 +62,7 @@ internal class TestMessagePollerObserver : DefaultMessagePollerObserver() {
 
   override fun <ReturnT> wrapMessageProcessing(
       message: Message,
-      messageProcessingBlock: () -> ReturnT
+      messageProcessingBlock: () -> ReturnT,
   ): ReturnT {
     wrappedProcessingCount++
     return messageProcessingBlock()

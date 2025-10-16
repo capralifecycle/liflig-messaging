@@ -56,7 +56,7 @@ public class SqsQueue(
       messageBody: String,
       customAttributes: Map<String, String>,
       systemAttributes: Map<String, String>,
-      delay: Duration?
+      delay: Duration?,
   ): MessageId {
     val response =
         try {

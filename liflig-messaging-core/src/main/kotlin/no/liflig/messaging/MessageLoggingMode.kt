@@ -41,7 +41,7 @@ public enum class MessageLoggingMode {
 internal fun LogBuilder.addMessageBodyToLog(
     key: String,
     messageBody: String,
-    mode: MessageLoggingMode
+    mode: MessageLoggingMode,
 ) {
   when (mode) {
     MessageLoggingMode.DISABLED -> {}
@@ -54,7 +54,7 @@ internal fun LogBuilder.addMessageBodyToLog(
 internal fun messageBodyLogField(
     key: String,
     messageBody: String,
-    mode: MessageLoggingMode
+    mode: MessageLoggingMode,
 ): LogField? {
   return when (mode) {
     MessageLoggingMode.DISABLED -> null

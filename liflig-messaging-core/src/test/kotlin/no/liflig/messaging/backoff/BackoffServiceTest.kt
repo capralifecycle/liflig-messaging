@@ -16,7 +16,11 @@ internal class BackoffServiceTest {
     // WHEN
     val nextTimeout =
         getNextVisibilityTimeout(
-            approximateReceiveCount, maxTimeoutMinutes, backoffFactor, initialIntervalSeconds)
+            approximateReceiveCount,
+            maxTimeoutMinutes,
+            backoffFactor,
+            initialIntervalSeconds,
+        )
     // THEN
     30 shouldBe nextTimeout
   }
@@ -28,7 +32,11 @@ internal class BackoffServiceTest {
     // WHEN
     val nextTimeout =
         getNextVisibilityTimeout(
-            approximateReceiveCount, maxTimeoutMinutes, backoffFactor, initialIntervalSeconds)
+            approximateReceiveCount,
+            maxTimeoutMinutes,
+            backoffFactor,
+            initialIntervalSeconds,
+        )
     // THEN
     1171 shouldBe nextTimeout
   }

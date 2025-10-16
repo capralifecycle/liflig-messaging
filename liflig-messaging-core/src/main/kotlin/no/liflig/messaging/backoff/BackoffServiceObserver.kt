@@ -14,7 +14,7 @@ public interface BackoffServiceObserver {
   public fun onIncreaseVisibilityTimeout(
       message: Message,
       nextVisibilityTimeout: Int,
-      approximateReceiveCount: Int
+      approximateReceiveCount: Int,
   )
 }
 
@@ -32,7 +32,7 @@ public open class DefaultBackoffServiceObserver(
   override fun onIncreaseVisibilityTimeout(
       message: Message,
       nextVisibilityTimeout: Int,
-      approximateReceiveCount: Int
+      approximateReceiveCount: Int,
   ) {
     // We log this at the DEBUG log level, since this is a pretty granular log.
     // This log level will be disabled by most library users, but they can enable it in their

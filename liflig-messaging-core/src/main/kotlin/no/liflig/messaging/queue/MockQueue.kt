@@ -41,7 +41,7 @@ public class MockQueue : Queue {
       messageBody: String,
       customAttributes: Map<String, String>,
       systemAttributes: Map<String, String>,
-      delay: Duration?
+      delay: Duration?,
   ): MessageId {
     lock.withLock {
       val message =

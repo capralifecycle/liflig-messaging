@@ -33,7 +33,7 @@ public interface Queue {
       messageBody: String,
       customAttributes: Map<String, String> = emptyMap(),
       systemAttributes: Map<String, String> = emptyMap(),
-      delay: Duration? = null
+      delay: Duration? = null,
   ): MessageId
 
   /**

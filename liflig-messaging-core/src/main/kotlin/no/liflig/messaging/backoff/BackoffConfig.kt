@@ -10,7 +10,7 @@ public data class BackoffConfig(
      */
     val backoffFactor: Double = BACKOFF_FACTOR_DEFAULT,
     /** The initial backoff interval. Defaults to 30 seconds. */
-    val initialIntervalSeconds: Int = INITIAL_INTERVAL_SECONDS_DEFAULT
+    val initialIntervalSeconds: Int = INITIAL_INTERVAL_SECONDS_DEFAULT,
 ) {
   public companion object {
     private const val MAX_TIMEOUT_MINUTES_DEFAULT = 20

@@ -14,7 +14,7 @@ import java.io.InputStream
  */
 internal inline fun <ReturnT> useResourceFile(
     path: String,
-    block: (InputStream) -> ReturnT
+    block: (InputStream) -> ReturnT,
 ): ReturnT {
   // Paths to getResourceAsStream should start with /, otherwise they're relative to the calling
   // package
