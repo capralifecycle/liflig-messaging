@@ -2,16 +2,30 @@
 
 package no.liflig.messaging.topic
 
+import java.time.Duration
 import java.util.UUID
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 import no.liflig.messaging.MessageId
+import no.liflig.messaging.utils.await
 
 /** Mock implementation of [Topic] for tests and local development. */
 public class MockTopic : Topic {
   public val publishedMessages: MutableList<String> = mutableListOf()
+  /** Read/write lock, to synchronize reads and writes to the message list. */
+  internal val lock: Lock = ReentrantLock()
+  /** Condition variable, to notify waiters when a message is published to the topic. */
+  private val cond = lock.newCondition()
 
   override fun publish(message: String): MessageId {
-    publishedMessages.add(message)
-    return MessageId(UUID.randomUUID().toString()) // Random mock message ID
+    lock.withLock {
+      publishedMessages.add(message)
+
+      cond.signalAll()
+
+      return MessageId(UUID.randomUUID().toString()) // Random mock message ID
+    }
   }
 
   /**
@@ -21,10 +35,12 @@ public class MockTopic : Topic {
    *   when we expect there to be an outgoing message).
    */
   public fun getPublishedMessage(): String {
-    return publishedMessages.lastOrNull()
-        ?: throw IllegalStateException(
-            "Expected to find published message on topic, but found none",
-        )
+    lock.withLock {
+      return publishedMessages.lastOrNull()
+          ?: throw IllegalStateException(
+              "Expected to find published message on topic, but found none"
+          )
+    }
   }
 
   /**
@@ -36,9 +52,41 @@ public class MockTopic : Topic {
    * await.until { topic.hasPublished(1) }
    * ```
    */
-  public fun hasPublished(messageCount: Int): Boolean = publishedMessages.size == messageCount
+  public fun hasPublished(messageCount: Int): Boolean {
+    lock.withLock {
+      return publishedMessages.size == messageCount
+    }
+  }
+
+  /**
+   * Waits for the given number of messages to be published (passed to [Topic.publish]), returns
+   * them, and then clears the [publishedMessages] list.
+   *
+   * If the given [timeout] expires before the messages are published, then a `TimeoutException` is
+   * thrown (default timeout is 10 seconds, set to `null` to wait forever).
+   *
+   * Example:
+   * ```
+   * val (event) = topic.awaitPublished(1)
+   * ```
+   */
+  public fun awaitPublished(messageCount: Int, timeout: Duration? = DEFAULT_TIMEOUT): List<String> {
+    return await(lock, cond, timeout) {
+      if (publishedMessages.size == messageCount) {
+        val copy = ArrayList(publishedMessages)
+        publishedMessages.clear()
+        copy
+      } else {
+        null
+      }
+    }
+  }
 
   public fun clear() {
-    publishedMessages.clear()
+    lock.withLock { publishedMessages.clear() }
+  }
+
+  private companion object {
+    private val DEFAULT_TIMEOUT = Duration.ofSeconds(10)
   }
 }

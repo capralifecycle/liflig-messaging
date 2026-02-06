@@ -4,11 +4,13 @@ package no.liflig.messaging.queue
 
 import java.time.Duration
 import java.util.UUID
+import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import no.liflig.messaging.Message
 import no.liflig.messaging.MessageId
+import no.liflig.messaging.utils.await
 
 /**
  * Mock implementation of [Queue] for tests and local development. There are generally two types of
@@ -36,6 +38,16 @@ public class MockQueue : Queue {
 
   /** Read/write lock, to synchronize reads and writes to the different message lists. */
   internal val lock: Lock = ReentrantLock()
+  /**
+   * We want to avoid busy-waiting on the [lock] in [poll], as that may slow down our tests. So
+   * instead, we use a condition variable, and wait on it in [poll] if no messages have been sent
+   * yet. Then, we call [Condition.signalAll] in [send], which wakes the poller.
+   *
+   * We also use this in our test utility methods [awaitProcessed], [awaitFailed] and [awaitSent].
+   *
+   * See the docstring on the [await] utility function for how we wait on this condition variable.
+   */
+  private val cond = lock.newCondition()
 
   override fun send(
       messageBody: String,
@@ -53,14 +65,22 @@ public class MockQueue : Queue {
               receiptHandle = UUID.randomUUID().toString(),
           )
       sentMessages.add(message)
+
+      cond.signalAll()
+
       return message.id
     }
   }
 
   override fun poll(): List<Message> {
-    lock.withLock {
-      // Copy the list, so the list is not modified by a different thread concurrently
-      return ArrayList(sentMessages)
+    /** See [cond]. */
+    return await(lock, cond, timeout = null) {
+      if (sentMessages.isNotEmpty()) {
+        // Copy list, for thread safety
+        ArrayList(sentMessages)
+      } else {
+        null
+      }
     }
   }
 
@@ -79,6 +99,8 @@ public class MockQueue : Queue {
       val removed = sentMessages.remove(message)
       if (removed) {
         processedMessages.add(message)
+
+        cond.signalAll()
       }
     }
   }
@@ -89,6 +111,8 @@ public class MockQueue : Queue {
       val removed = sentMessages.remove(message)
       if (removed) {
         failedMessages.add(message)
+
+        cond.signalAll()
       }
     }
   }
@@ -108,10 +132,61 @@ public class MockQueue : Queue {
     }
   }
 
+  /**
+   * Waits for the given number of messages to be successfully processed (passed to [Queue.delete]),
+   * returns them, and then clears the [processedMessages] list.
+   *
+   * If the given [timeout] expires before the messages are processed, then a `TimeoutException` is
+   * thrown (default timeout is 10 seconds, set to `null` to wait forever).
+   *
+   * Example:
+   * ```
+   * val (event) = queue.awaitProcessed(1)
+   * ```
+   */
+  public fun awaitProcessed(
+      messageCount: Int,
+      timeout: Duration? = DEFAULT_TIMEOUT,
+  ): List<Message> {
+    return await(lock, cond, timeout) {
+      if (processedMessages.size == messageCount) {
+        val copy = ArrayList(processedMessages)
+        processedMessages.clear()
+        copy
+      } else {
+        null
+      }
+    }
+  }
+
   /** Checks if the queue has the given count of outgoing messages (from [send]). */
   public fun hasSent(messageCount: Int): Boolean {
     lock.withLock {
       return sentMessages.size == messageCount
+    }
+  }
+
+  /**
+   * Waits for the given number of messages to be sent to the queue (passed to [Queue.send]),
+   * returns them, and then clears the [sentMessages] list.
+   *
+   * If the given [timeout] expires before the messages are sent, then a `TimeoutException` is
+   * thrown (default timeout is 10 seconds, set to `null` to wait forever).
+   *
+   * Example:
+   * ```
+   * val (event) = queue.awaitSent(1)
+   * ```
+   */
+  public fun awaitSent(messageCount: Int, timeout: Duration? = DEFAULT_TIMEOUT): List<Message> {
+    return await(lock, cond, timeout) {
+      if (sentMessages.size == messageCount) {
+        val copy = ArrayList(sentMessages)
+        sentMessages.clear()
+        copy
+      } else {
+        null
+      }
     }
   }
 
@@ -136,6 +211,30 @@ public class MockQueue : Queue {
   }
 
   /**
+   * Waits for the given number of messages to fail processing (passed to [Queue.retry] or
+   * [Queue.deleteFailed]), returns them, and then clears the [failedMessages] list.
+   *
+   * If the given [timeout] expires before the messages fail, then a `TimeoutException` is thrown
+   * (default timeout is 10 seconds, set to `null` to wait forever).
+   *
+   * Example:
+   * ```
+   * val (failedEvent) = queue.awaitFailed(1)
+   * ```
+   */
+  public fun awaitFailed(messageCount: Int, timeout: Duration? = DEFAULT_TIMEOUT): List<Message> {
+    return await(lock, cond, timeout) {
+      if (failedMessages.size == messageCount) {
+        val copy = ArrayList(failedMessages)
+        failedMessages.clear()
+        copy
+      } else {
+        null
+      }
+    }
+  }
+
+  /**
    * Gets the latest failed message from [retry].
    *
    * @throws IllegalStateException If there are no outgoing messages (since we call this in tests
@@ -154,5 +253,9 @@ public class MockQueue : Queue {
       processedMessages.clear()
       failedMessages.clear()
     }
+  }
+
+  private companion object {
+    private val DEFAULT_TIMEOUT = Duration.ofSeconds(10)
   }
 }
