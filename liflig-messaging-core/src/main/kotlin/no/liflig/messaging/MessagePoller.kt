@@ -80,7 +80,7 @@ public class MessagePoller(
     }
   }
 
-  private fun poll() {
+  internal fun poll() {
     val messages = queue.poll()
     observer.onPoll(messages)
 
@@ -100,7 +100,7 @@ public class MessagePoller(
                   if (result.retry) {
                     queue.retry(message)
                   } else {
-                    queue.delete(message)
+                    queue.deleteFailed(message)
                   }
                 }
               }

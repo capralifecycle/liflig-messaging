@@ -45,10 +45,20 @@ public interface Queue {
   public fun poll(): List<Message>
 
   /**
-   * Deletes the message from the queue, either because it was successfully processed, or because
-   * processing failed with retry disabled.
+   * Deletes the message from the queue after it was successfully processed. If the message failed
+   * processing but is still being deleted, [deleteFailed] should be called instead.
    */
   public fun delete(message: Message)
+
+  /**
+   * Variation of [delete] for messages that failed processing, but should not be retried. Default
+   * implementation just delegates to [delete], but some queue implementations may want to override
+   * this in order to separate between successful and failed messages being deleted (for example,
+   * [MockQueue] uses this).
+   */
+  public fun deleteFailed(message: Message) {
+    this.delete(message)
+  }
 
   /**
    * Pushes the message back to the queue, typically because processing failed.

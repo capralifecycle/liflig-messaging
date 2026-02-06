@@ -22,19 +22,42 @@ import no.liflig.messaging.utils.await
  *   that an expected message was sent with [getSentMessage].
  */
 public class MockQueue : Queue {
-  /** Messages sent with [send], that have not been processed yet. */
-  public val sentMessages: MutableList<Message> = mutableListOf()
   /**
-   * Messages processed by a `MessagePoller` (and its `MessageProcessor`), which then called
-   * [delete] on it. A message added here typically means it was successfully processed, though it
-   * may also mean that it failed with retry disabled.
+   * Messages sent with [send], that have not been processed yet.
+   *
+   * Consider using [awaitSent] if you need to wait for some other thread to send to the queue.
+   */
+  public val sentMessages: MutableList<Message> = mutableListOf()
+
+  /** See [sentMessages]. */
+  public val sentMessageCount: Int
+    get() = lock.withLock { sentMessages.size }
+
+  /**
+   * Messages successfully processed by a `MessagePoller` (and its `MessageProcessor`), which then
+   * called [delete] on it.
+   *
+   * Consider using [awaitProcessed] if you need to wait for some other thread to process from the
+   * queue.
    */
   public val processedMessages: MutableList<Message> = mutableListOf()
+
+  /** See [processedMessages]. */
+  public val processedMessageCount: Int
+    get() = lock.withLock { processedMessages.size }
+
   /**
-   * Messages processed by a `MessagePoller` (and its `MessageProcessor`), which then called [retry]
-   * on it to retry the message, due to a failure in processing it.
+   * Messages that failed processing by a `MessagePoller` (and its `MessageProcessor`), which then
+   * called [Queue.retry] or [Queue.deleteFailed] on it.
+   *
+   * Consider using [awaitFailed] if you need to wait for some other thread to process from the
+   * queue.
    */
   public val failedMessages: MutableList<Message> = mutableListOf()
+
+  /** See [failedMessages]. */
+  public val failedMessageCount: Int
+    get() = lock.withLock { failedMessages.size }
 
   /** Read/write lock, to synchronize reads and writes to the different message lists. */
   internal val lock: Lock = ReentrantLock()
@@ -105,7 +128,7 @@ public class MockQueue : Queue {
     }
   }
 
-  override fun retry(message: Message) {
+  override fun deleteFailed(message: Message) {
     lock.withLock {
       /** Same logic as [delete]. */
       val removed = sentMessages.remove(message)
@@ -117,19 +140,13 @@ public class MockQueue : Queue {
     }
   }
 
-  /**
-   * Can be used together with awaitility in tests, to wait until the queue has processed the given
-   * number of messages. Example:
-   * ```
-   * import org.awaitility.kotlin.await
-   *
-   * await.until { queue.hasProcessed(1) }
-   * ```
-   */
-  public fun hasProcessed(messageCount: Int): Boolean {
-    lock.withLock {
-      return processedMessages.size == messageCount
-    }
+  override fun retry(message: Message) {
+    /**
+     * At the moment, `MockQueue` does not separate between messages that failed with/without retry.
+     * If there is need for that in the future, then we should maintain 2 lists of failed messages,
+     * one for messages that failed with retry and one for messages that failed without retry.
+     */
+    this.deleteFailed(message)
   }
 
   /**
@@ -159,13 +176,6 @@ public class MockQueue : Queue {
     }
   }
 
-  /** Checks if the queue has the given count of outgoing messages (from [send]). */
-  public fun hasSent(messageCount: Int): Boolean {
-    lock.withLock {
-      return sentMessages.size == messageCount
-    }
-  }
-
   /**
    * Waits for the given number of messages to be sent to the queue (passed to [Queue.send]),
    * returns them, and then clears the [sentMessages] list.
@@ -187,26 +197,6 @@ public class MockQueue : Queue {
       } else {
         null
       }
-    }
-  }
-
-  /**
-   * Gets the latest outgoing message from [send].
-   *
-   * @throws IllegalStateException If there are no outgoing messages (since we call this in tests
-   *   when we expect there to be an outgoing message).
-   */
-  public fun getSentMessage(): Message {
-    lock.withLock {
-      return sentMessages.lastOrNull()
-          ?: throw IllegalStateException("Expected to find sent message on queue, but found none")
-    }
-  }
-
-  /** Checks if the queue has the given count of failed messages (see [failedMessages]). */
-  public fun hasFailed(messageCount: Int): Boolean {
-    lock.withLock {
-      return failedMessages.size == messageCount
     }
   }
 
@@ -235,7 +225,54 @@ public class MockQueue : Queue {
   }
 
   /**
-   * Gets the latest failed message from [retry].
+   * Returns true if the queue has the given number of successfully processed messages (see
+   * [processedMessages]).
+   *
+   * Consider using [awaitProcessed] instead.
+   */
+  public fun hasProcessed(messageCount: Int): Boolean {
+    lock.withLock {
+      return processedMessages.size == messageCount
+    }
+  }
+
+  /**
+   * Returns true if the given number of messages has been sent to the queue (see [sentMessages]).
+   *
+   * Consider using [awaitSent] instead.
+   */
+  public fun hasSent(messageCount: Int): Boolean {
+    lock.withLock {
+      return sentMessages.size == messageCount
+    }
+  }
+
+  /** Returns true if the queue has the given number of failed messages (see [failedMessages]). */
+  public fun hasFailed(messageCount: Int): Boolean {
+    lock.withLock {
+      return failedMessages.size == messageCount
+    }
+  }
+
+  /**
+   * Gets the latest outgoing message from [send].
+   *
+   * Consider using [awaitSent] instead.
+   *
+   * @throws IllegalStateException If there are no outgoing messages (since we call this in tests
+   *   when we expect there to be an outgoing message).
+   */
+  public fun getSentMessage(): Message {
+    lock.withLock {
+      return sentMessages.lastOrNull()
+          ?: throw IllegalStateException("Expected to find sent message on queue, but found none")
+    }
+  }
+
+  /**
+   * Gets the latest failed message from [Queue.retry] / [Queue.deleteFailed].
+   *
+   * Consider using [awaitFailed] instead.
    *
    * @throws IllegalStateException If there are no outgoing messages (since we call this in tests
    *   when we expect there to be an outgoing message).

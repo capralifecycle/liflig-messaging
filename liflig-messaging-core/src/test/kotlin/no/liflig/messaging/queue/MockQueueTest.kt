@@ -1,14 +1,18 @@
 package no.liflig.messaging.queue
 
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import java.util.UUID
 import kotlin.concurrent.thread
 import no.liflig.messaging.Message
 import no.liflig.messaging.MessageId
+import no.liflig.messaging.MessagePoller
+import no.liflig.messaging.ProcessingResult
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.RepeatedTest
+import org.junit.jupiter.api.Test
 
 internal class MockQueueTest {
   val queue = MockQueue()
@@ -16,6 +20,23 @@ internal class MockQueueTest {
   @BeforeEach
   fun reset() {
     queue.clear()
+  }
+
+  @Test
+  fun `messages that fail processing with retry disabled are added to failedMessages`() {
+    val message = createMessage("test")
+    queue.sentMessages.add(message)
+
+    val messagePoller =
+        MessagePoller(
+            queue,
+            messageProcessor = { ProcessingResult.Failure(retry = false) },
+        )
+    messagePoller.poll()
+
+    queue.failedMessages.shouldContainExactly(message)
+    queue.sentMessages.shouldBeEmpty()
+    queue.processedMessages.shouldBeEmpty()
   }
 
   @RepeatedTest(10) // Repeat test for more variations of threads interleaving
