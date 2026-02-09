@@ -6,10 +6,13 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
+import no.liflig.messaging.DefaultMessagePollerObserver
 import no.liflig.messaging.Message
 import no.liflig.messaging.MessageId
 import no.liflig.messaging.MessagePoller
+import no.liflig.messaging.MessagePollerObserver
 import no.liflig.messaging.ProcessingResult
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.RepeatedTest
@@ -38,6 +41,63 @@ internal class MockQueueTest {
     queue.failedMessages.shouldContainExactly(message)
     queue.sentMessages.shouldBeEmpty()
     queue.processedMessages.shouldBeEmpty()
+  }
+
+  @RepeatedTest(10) // Repeat test for more variations of threads interleaving
+  fun `test poll`() {
+    /**
+     * We want to test that [MockQueue.poll] works as expected: It should block the [MessagePoller]
+     * until there are messages to receive on the queue. So we expect the poller to only poll from
+     * the queue once when we just send a single message to the queue.
+     */
+    var pollCount = 0
+    var polledMessages: List<Message>? = null
+
+    /**
+     * Use [CountDownLatch] along with a custom [MessagePollerObserver] so that we can wait for
+     * certain points in the MessagePoller's lifecycle.
+     */
+    val pollerStartedSignal = CountDownLatch(1)
+    val pollCompleteSignal = CountDownLatch(1)
+
+    val messagePoller =
+        MessagePoller(
+            queue,
+            messageProcessor = { ProcessingResult.Success },
+            observer =
+                object : DefaultMessagePollerObserver() {
+                  override fun onPollerStartup() {
+                    super.onPollerStartup()
+
+                    pollerStartedSignal.countDown()
+                  }
+
+                  override fun onPoll(messages: List<Message>) {
+                    super.onPoll(messages)
+
+                    pollCount++
+                    polledMessages = messages
+                    pollCompleteSignal.countDown()
+                  }
+                },
+        )
+    messagePoller.use {
+      messagePoller.start()
+
+      /**
+       * Let the poller start before we send a message, so we can verify [MockQueue.poll] does not
+       * return before there's a message on the queue.
+       */
+      pollerStartedSignal.await()
+
+      queue.send("test")
+
+      /** Wait for the message to be polled. */
+      pollCompleteSignal.await()
+
+      pollCount.shouldBe(1)
+      polledMessages.shouldNotBeNull().map { it.body }.shouldBe(listOf("test"))
+    }
   }
 
   @RepeatedTest(10) // Repeat test for more variations of threads interleaving
