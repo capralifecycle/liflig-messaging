@@ -343,7 +343,7 @@ public class MockQueue : Queue {
      * - If false: Returns `null`
      *
      * [MockQueue.lock] must be held when this is called on one of its message lists. This is the
-     * case in all the `await`/`expect` messages where we call this.
+     * case in all the `await`/`expect` methods where we call this.
      */
     private fun takeMessages(
         expectedMessageCount: Int,

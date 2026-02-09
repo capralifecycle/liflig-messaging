@@ -29,6 +29,54 @@ public class MockTopic : Topic {
   }
 
   /**
+   * Waits for the given number of messages to be published (passed to [Topic.publish]), returns
+   * them, and then clears the [publishedMessages] list.
+   *
+   * If the given [timeout] expires before the messages are published, then a `TimeoutException` is
+   * thrown (default timeout is 10 seconds, set to `null` to wait forever).
+   *
+   * If you want to assert that the topic has the given number of published messages _right now_,
+   * without waiting, then you should call [expectPublished] instead.
+   *
+   * Example:
+   * ```
+   * val (event) = topic.awaitPublished(1)
+   * ```
+   */
+  public fun awaitPublished(messageCount: Int, timeout: Duration? = DEFAULT_TIMEOUT): List<String> {
+    return await(lock, cond, timeout) {
+      if (publishedMessages.size == messageCount) {
+        val copy = ArrayList(publishedMessages)
+        publishedMessages.clear()
+        copy
+      } else {
+        null
+      }
+    }
+  }
+
+  /**
+   * Checks if the topic has the given number of published messages (passed to [Topic.publish]).
+   * - If it does: Returns a copy of the published messages, and then clears the [publishedMessages]
+   *   list
+   * - If it does not: Throws an [IllegalStateException]
+   *
+   * If you want to wait until some other thread publishes the given number of messages, call
+   * [awaitPublished] instead.
+   *
+   * Example:
+   * ```
+   * val (event) = topic.expectPublished(1)
+   * ```
+   */
+  public fun expectPublished(messageCount: Int): List<String> {
+    lock.withLock {
+      return takeMessages(messageCount)
+          ?: throw IllegalStateException(buildMessageExceptionString(messageCount))
+    }
+  }
+
+  /**
    * Gets the latest published message.
    *
    * @throws IllegalStateException If there are no published messages (since we call this in tests
@@ -58,32 +106,51 @@ public class MockTopic : Topic {
     }
   }
 
+  public fun clear() {
+    lock.withLock { publishedMessages.clear() }
+  }
+
   /**
-   * Waits for the given number of messages to be published (passed to [Topic.publish]), returns
-   * them, and then clears the [publishedMessages] list.
+   * Checks if the [publishedMessages] list has size equal to the given [expectedMessageCount].
+   * - If true: Returns a copy of the published messages, and clears the [publishedMessages] list
+   * - If false: Returns `null`
    *
-   * If the given [timeout] expires before the messages are published, then a `TimeoutException` is
-   * thrown (default timeout is 10 seconds, set to `null` to wait forever).
-   *
-   * Example:
-   * ```
-   * val (event) = topic.awaitPublished(1)
-   * ```
+   * [MockTopic.lock] must be held when this is called. This is the case in all the `await`/`expect`
+   * methods where we call this.
    */
-  public fun awaitPublished(messageCount: Int, timeout: Duration? = DEFAULT_TIMEOUT): List<String> {
-    return await(lock, cond, timeout) {
-      if (publishedMessages.size == messageCount) {
-        val copy = ArrayList(publishedMessages)
-        publishedMessages.clear()
-        copy
-      } else {
-        null
-      }
+  private fun takeMessages(expectedMessageCount: Int): List<String>? {
+    if (publishedMessages.size == expectedMessageCount) {
+      val copy = ArrayList(publishedMessages)
+      publishedMessages.clear()
+      return copy
+    } else {
+      return null
     }
   }
 
-  public fun clear() {
-    lock.withLock { publishedMessages.clear() }
+  private fun buildMessageExceptionString(expectedMessageCount: Int): String {
+    return buildString {
+      append("Expected ")
+      append(expectedMessageCount)
+      append(" published messages on topic, got ")
+      append(publishedMessages.size)
+
+      // If there were more than 0 messages on the topic, include the messages in the exception
+      // for debugging
+      if (publishedMessages.isNotEmpty()) {
+        append(":")
+
+        publishedMessages.forEachIndexed { index, message ->
+          append("\n\t")
+          // If there's more than 1 message, we use a numbered list to separate them
+          if (publishedMessages.size != 1) {
+            append(index + 1)
+            append(": ")
+          }
+          append(message)
+        }
+      }
+    }
   }
 
   private companion object {
