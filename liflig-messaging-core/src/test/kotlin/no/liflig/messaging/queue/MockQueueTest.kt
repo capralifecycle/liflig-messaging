@@ -124,29 +124,6 @@ internal class MockQueueTest {
   }
 
   @RepeatedTest(10) // Repeat test for more variations of threads interleaving
-  fun `test awaitFailed`() {
-    val messages = listOf(createMessage("1"), createMessage("2"))
-    queue.sentMessages.addAll(messages)
-
-    var result: List<Message>? = null
-    val consumer = thread { result = queue.awaitFailed(messages.size) }
-
-    val producer = thread {
-      messages.forEach {
-        queue.retry(it)
-        Thread.yield()
-      }
-    }
-
-    consumer.join()
-    producer.join()
-
-    result.shouldNotBeNull().shouldBe(messages)
-    queue.sentMessages.shouldBeEmpty()
-    queue.failedMessages.shouldBeEmpty()
-  }
-
-  @RepeatedTest(10) // Repeat test for more variations of threads interleaving
   fun `test awaitSent`() {
     val messageBodies = listOf("1", "2")
 
@@ -165,6 +142,110 @@ internal class MockQueueTest {
 
     result.shouldNotBeNull().map { it.body }.shouldBe(messageBodies)
     queue.sentMessages.shouldBeEmpty()
+  }
+
+  @RepeatedTest(10) // Repeat test for more variations of threads interleaving
+  fun `test awaitFailed`() {
+    val messages = listOf(createMessage("1"), createMessage("2"))
+    queue.sentMessages.addAll(messages)
+
+    var result: List<Message>? = null
+    val consumer = thread { result = queue.awaitFailed(messages.size) }
+
+    val producer = thread {
+      /**
+       * Add failed messages both with and without retry, to verify that both these are cleared
+       * after the call to `awaitFailed`.
+       */
+      queue.retry(messages[0])
+      Thread.yield() // Yield to allow consumer thread to interleave
+      queue.deleteFailed(messages[1])
+    }
+
+    consumer.join()
+    producer.join()
+
+    result.shouldNotBeNull().shouldBe(messages)
+    queue.sentMessages.shouldBeEmpty()
+    queue.failedMessages.shouldBeEmpty()
+    queue.failedMessagesWithRetry.shouldBeEmpty()
+    queue.failedMessagesWithoutRetry.shouldBeEmpty()
+  }
+
+  @RepeatedTest(10) // Repeat test for more variations of threads interleaving
+  fun `test awaitFailedWithRetry`() {
+    /**
+     * Add some previously failed messages without retry, to verify that these are not removed from
+     * the [MockQueue.failedMessages] list.
+     */
+    val failedMessagesWithoutRetry = listOf(createMessage("1"), createMessage(("2")))
+    queue.sentMessages.addAll(failedMessagesWithoutRetry)
+    failedMessagesWithoutRetry.forEach { queue.deleteFailed(it) }
+    queue.failedMessages.shouldBe(failedMessagesWithoutRetry)
+    queue.failedMessagesWithoutRetry.shouldBe(failedMessagesWithoutRetry)
+
+    /** Now fail some messages with retry enabled. */
+    val messages = listOf(createMessage("3"), createMessage("4"))
+    queue.sentMessages.addAll(messages)
+
+    var result: List<Message>? = null
+    val consumer = thread { result = queue.awaitFailedWithRetry(messages.size) }
+
+    val producer = thread {
+      messages.forEach {
+        queue.retry(it)
+        Thread.yield()
+      }
+    }
+
+    consumer.join()
+    producer.join()
+
+    result.shouldNotBeNull().shouldBe(messages)
+    queue.sentMessages.shouldBeEmpty()
+    queue.failedMessagesWithRetry.shouldBeEmpty()
+
+    /** Verify that previously failed messages without retry still remain on the queue. */
+    queue.failedMessages.shouldBe(failedMessagesWithoutRetry)
+    queue.failedMessagesWithoutRetry.shouldBe(failedMessagesWithoutRetry)
+  }
+
+  @RepeatedTest(10) // Repeat test for more variations of threads interleaving
+  fun `test awaitFailedWithoutRetry`() {
+    /**
+     * Add some previously failed messages with retry, to verify that these are not removed from the
+     * [MockQueue.failedMessages] list.
+     */
+    val failedMessagesWithRetry = listOf(createMessage("1"), createMessage(("2")))
+    queue.sentMessages.addAll(failedMessagesWithRetry)
+    failedMessagesWithRetry.forEach { queue.retry(it) }
+    queue.failedMessages.shouldBe(failedMessagesWithRetry)
+    queue.failedMessagesWithRetry.shouldBe(failedMessagesWithRetry)
+
+    /** Now fail some messages with retry disabled. */
+    val messages = listOf(createMessage("3"), createMessage("4"))
+    queue.sentMessages.addAll(messages)
+
+    var result: List<Message>? = null
+    val consumer = thread { result = queue.awaitFailedWithoutRetry(messages.size) }
+
+    val producer = thread {
+      messages.forEach {
+        queue.deleteFailed(it)
+        Thread.yield()
+      }
+    }
+
+    consumer.join()
+    producer.join()
+
+    result.shouldNotBeNull().shouldBe(messages)
+    queue.sentMessages.shouldBeEmpty()
+    queue.failedMessagesWithoutRetry.shouldBeEmpty()
+
+    /** Verify that previously failed messages with retry still remain on the queue. */
+    queue.failedMessages.shouldBe(failedMessagesWithRetry)
+    queue.failedMessagesWithRetry.shouldBe(failedMessagesWithRetry)
   }
 
   @Test
@@ -191,10 +272,50 @@ internal class MockQueueTest {
   fun `test successful expectFailed`() {
     val messages = listOf(createMessage("msg1"), createMessage("msg2"))
     queue.failedMessages.addAll(messages)
+    queue.failedMessagesWithRetry.add(messages[0])
+    queue.failedMessagesWithoutRetry.add(messages[1])
 
     val actualMessages = queue.expectFailed(2)
     actualMessages.shouldBe(messages)
     queue.failedMessages.shouldBeEmpty()
+    queue.failedMessagesWithRetry.shouldBeEmpty()
+    queue.failedMessagesWithoutRetry.shouldBeEmpty()
+  }
+
+  @Test
+  fun `test successful expectFailedWithRetry`() {
+    val messagesWithRetry = listOf(createMessage("msg1"), createMessage("msg2"))
+    queue.failedMessagesWithRetry.addAll(messagesWithRetry)
+
+    /** Also test messages without retry, to verify that they remain on the queue after. */
+    val messagesWithoutRetry = listOf(createMessage("msg3"), createMessage("msg4"))
+    queue.failedMessagesWithoutRetry.addAll(messagesWithoutRetry)
+    queue.failedMessages.addAll(messagesWithRetry + messagesWithoutRetry)
+
+    val actualMessages = queue.expectFailedWithRetry(2)
+    actualMessages.shouldBe(messagesWithRetry)
+    queue.failedMessagesWithRetry.shouldBeEmpty()
+
+    queue.failedMessages.shouldBe(messagesWithoutRetry)
+    queue.failedMessagesWithoutRetry.shouldBe(messagesWithoutRetry)
+  }
+
+  @Test
+  fun `test successful expectFailedWithoutRetry`() {
+    val messagesWithoutRetry = listOf(createMessage("msg1"), createMessage("msg2"))
+    queue.failedMessagesWithoutRetry.addAll(messagesWithoutRetry)
+
+    /** Also test messages with retry, to verify that they remain on the queue after. */
+    val messagesWithRetry = listOf(createMessage("msg3"), createMessage("msg4"))
+    queue.failedMessagesWithRetry.addAll(messagesWithRetry)
+    queue.failedMessages.addAll(messagesWithoutRetry + messagesWithRetry)
+
+    val actualMessages = queue.expectFailedWithoutRetry(2)
+    actualMessages.shouldBe(messagesWithoutRetry)
+    queue.failedMessagesWithoutRetry.shouldBeEmpty()
+
+    queue.failedMessages.shouldBe(messagesWithRetry)
+    queue.failedMessagesWithRetry.shouldBe(messagesWithRetry)
   }
 
   @Test
@@ -238,6 +359,38 @@ internal class MockQueueTest {
     exception.message.shouldBe(
         """
         Expected 3 failed messages on queue, got 2:
+        	1: msg1
+        	2: msg2
+        """
+            .trimIndent()
+    )
+  }
+
+  @Test
+  fun `test expectFailedWithRetry exception`() {
+    val messages = listOf(createMessage("msg1"), createMessage("msg2"))
+    queue.failedMessagesWithRetry.addAll(messages)
+
+    val exception = shouldThrow<IllegalStateException> { queue.expectFailedWithRetry(3) }
+    exception.message.shouldBe(
+        """
+        Expected 3 failed messages (with retry enabled) on queue, got 2:
+        	1: msg1
+        	2: msg2
+        """
+            .trimIndent()
+    )
+  }
+
+  @Test
+  fun `test expectFailedWithoutRetry exception`() {
+    val messages = listOf(createMessage("msg1"), createMessage("msg2"))
+    queue.failedMessagesWithoutRetry.addAll(messages)
+
+    val exception = shouldThrow<IllegalStateException> { queue.expectFailedWithoutRetry(3) }
+    exception.message.shouldBe(
+        """
+        Expected 3 failed messages (with retry disabled) on queue, got 2:
         	1: msg1
         	2: msg2
         """

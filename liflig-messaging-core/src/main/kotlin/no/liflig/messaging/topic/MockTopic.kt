@@ -10,8 +10,23 @@ import kotlin.concurrent.withLock
 import no.liflig.messaging.MessageId
 import no.liflig.messaging.utils.await
 
-/** Mock implementation of [Topic] for tests and local development. */
+/**
+ * Mock implementation of [Topic] for tests and local development. Provides [awaitPublished] and
+ * [expectPublished] for testing the state of messages on the topic.
+ *
+ * If you reuse the same topic across tests, you should call [clear] between each test.
+ */
 public class MockTopic : Topic {
+  /**
+   * Messages published to the topic with [publish].
+   *
+   * Consider using [awaitPublished] if you need to wait for some other thread to publish to the
+   * topic, or [expectPublished] if you want to verify the current state of published messages on
+   * the topic.
+   *
+   * We expose this as a [MutableList] for backwards compatibility, but you probably don't want to
+   * use this list directly. In some future major version, we might make this internal.
+   */
   public val publishedMessages: MutableList<String> = mutableListOf()
   /** Read/write lock, to synchronize reads and writes to the message list. */
   internal val lock: Lock = ReentrantLock()
@@ -79,8 +94,10 @@ public class MockTopic : Topic {
   /**
    * Gets the latest published message.
    *
+   * Consider using [awaitPublished] / [expectPublished] instead.
+   *
    * @throws IllegalStateException If there are no published messages (since we call this in tests
-   *   when we expect there to be an outgoing message).
+   *   when we expect there to be a published message).
    */
   public fun getPublishedMessage(): String {
     lock.withLock {
@@ -92,13 +109,9 @@ public class MockTopic : Topic {
   }
 
   /**
-   * Can be used together with awaitility in tests, to wait until the given number of messages has
-   * been published to the topic. Example:
-   * ```
-   * import org.awaitility.kotlin.await
+   * Returns true if the topic has the given number of published messages (see [publishedMessages]).
    *
-   * await.until { topic.hasPublished(1) }
-   * ```
+   * Consider using [awaitPublished] / [expectPublished] instead.
    */
   public fun hasPublished(messageCount: Int): Boolean {
     lock.withLock {
@@ -106,6 +119,10 @@ public class MockTopic : Topic {
     }
   }
 
+  /**
+   * Clears sent, processed and failed messages on the queue. Call this between tests to reset
+   * state.
+   */
   public fun clear() {
     lock.withLock { publishedMessages.clear() }
   }

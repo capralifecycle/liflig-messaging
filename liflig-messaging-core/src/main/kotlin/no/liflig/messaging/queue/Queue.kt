@@ -51,10 +51,10 @@ public interface Queue {
   public fun delete(message: Message)
 
   /**
-   * Variation of [delete] for messages that failed processing, but should not be retried. Default
+   * Variation of [delete] for messages that failed processing with retry disabled. Default
    * implementation just delegates to [delete], but some queue implementations may want to override
    * this in order to separate between successful and failed messages being deleted (for example,
-   * [MockQueue] uses this).
+   * [MockQueue.deleteFailed] uses this).
    */
   public fun deleteFailed(message: Message) {
     this.delete(message)
