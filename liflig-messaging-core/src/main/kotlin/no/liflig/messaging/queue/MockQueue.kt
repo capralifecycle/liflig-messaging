@@ -29,10 +29,6 @@ public class MockQueue : Queue {
    */
   public val sentMessages: MutableList<Message> = mutableListOf()
 
-  /** See [sentMessages]. */
-  public val sentMessageCount: Int
-    get() = lock.withLock { sentMessages.size }
-
   /**
    * Messages successfully processed by a `MessagePoller` (and its `MessageProcessor`), which then
    * called [delete] on it.
@@ -42,10 +38,6 @@ public class MockQueue : Queue {
    */
   public val processedMessages: MutableList<Message> = mutableListOf()
 
-  /** See [processedMessages]. */
-  public val processedMessageCount: Int
-    get() = lock.withLock { processedMessages.size }
-
   /**
    * Messages that failed processing by a `MessagePoller` (and its `MessageProcessor`), which then
    * called [Queue.retry] or [Queue.deleteFailed] on it.
@@ -54,10 +46,6 @@ public class MockQueue : Queue {
    * queue.
    */
   public val failedMessages: MutableList<Message> = mutableListOf()
-
-  /** See [failedMessages]. */
-  public val failedMessageCount: Int
-    get() = lock.withLock { failedMessages.size }
 
   /** Read/write lock, to synchronize reads and writes to the different message lists. */
   internal val lock: Lock = ReentrantLock()
@@ -151,10 +139,13 @@ public class MockQueue : Queue {
 
   /**
    * Waits for the given number of messages to be successfully processed (passed to [Queue.delete]),
-   * returns them, and then clears the [processedMessages] list.
+   * returns a copy of them, and then clears the [processedMessages] list.
    *
    * If the given [timeout] expires before the messages are processed, then a `TimeoutException` is
    * thrown (default timeout is 10 seconds, set to `null` to wait forever).
+   *
+   * If you want to assert that the queue has the given number of processed messages _right now_,
+   * without waiting, then you should call [expectProcessed] instead.
    *
    * Example:
    * ```
@@ -165,23 +156,18 @@ public class MockQueue : Queue {
       messageCount: Int,
       timeout: Duration? = DEFAULT_TIMEOUT,
   ): List<Message> {
-    return await(lock, cond, timeout) {
-      if (processedMessages.size == messageCount) {
-        val copy = ArrayList(processedMessages)
-        processedMessages.clear()
-        copy
-      } else {
-        null
-      }
-    }
+    return await(lock, cond, timeout) { takeMessages(messageCount, this.processedMessages) }
   }
 
   /**
    * Waits for the given number of messages to be sent to the queue (passed to [Queue.send]),
-   * returns them, and then clears the [sentMessages] list.
+   * returns a copy of them, and then clears the [sentMessages] list.
    *
    * If the given [timeout] expires before the messages are sent, then a `TimeoutException` is
    * thrown (default timeout is 10 seconds, set to `null` to wait forever).
+   *
+   * If you want to assert that the queue has the given number of sent messages _right now_, without
+   * waiting, then you should call [expectSent] instead.
    *
    * Example:
    * ```
@@ -189,23 +175,18 @@ public class MockQueue : Queue {
    * ```
    */
   public fun awaitSent(messageCount: Int, timeout: Duration? = DEFAULT_TIMEOUT): List<Message> {
-    return await(lock, cond, timeout) {
-      if (sentMessages.size == messageCount) {
-        val copy = ArrayList(sentMessages)
-        sentMessages.clear()
-        copy
-      } else {
-        null
-      }
-    }
+    return await(lock, cond, timeout) { takeMessages(messageCount, this.sentMessages) }
   }
 
   /**
    * Waits for the given number of messages to fail processing (passed to [Queue.retry] or
-   * [Queue.deleteFailed]), returns them, and then clears the [failedMessages] list.
+   * [Queue.deleteFailed]), returns a copy of them, and then clears the [failedMessages] list.
    *
    * If the given [timeout] expires before the messages fail, then a `TimeoutException` is thrown
    * (default timeout is 10 seconds, set to `null` to wait forever).
+   *
+   * If you want to assert that the queue has the given number of failed messages _right now_,
+   * without waiting, then you should call [expectFailed] instead.
    *
    * Example:
    * ```
@@ -213,14 +194,75 @@ public class MockQueue : Queue {
    * ```
    */
   public fun awaitFailed(messageCount: Int, timeout: Duration? = DEFAULT_TIMEOUT): List<Message> {
-    return await(lock, cond, timeout) {
-      if (failedMessages.size == messageCount) {
-        val copy = ArrayList(failedMessages)
-        failedMessages.clear()
-        copy
-      } else {
-        null
-      }
+    return await(lock, cond, timeout) { takeMessages(messageCount, this.failedMessages) }
+  }
+
+  /**
+   * Checks if the queue has the given number of successfully processed messages (passed to
+   * [Queue.delete]).
+   * - If it does: Returns a copy of the processed messages, and then clears the [processedMessages]
+   *   list
+   * - If it does not: Throws an [IllegalStateException]
+   *
+   * If you want to wait until some other thread processes the given number of messages, call
+   * [awaitProcessed] instead.
+   *
+   * Example:
+   * ```
+   * val (event) = queue.expectProcessed(1)
+   * ```
+   */
+  public fun expectProcessed(messageCount: Int): List<Message> {
+    lock.withLock {
+      return takeMessages(messageCount, this.processedMessages)
+          ?: throw IllegalStateException(
+              buildMessageExceptionString(messageCount, this.processedMessages, "processed")
+          )
+    }
+  }
+
+  /**
+   * Checks if the queue has the given number of sent messages (passed to [Queue.send]).
+   * - If it does: Returns a copy of the sent messages, and then clears the [sentMessages] list
+   * - If it does not: Throws an [IllegalStateException]
+   *
+   * If you want to wait until some other thread sends the given number of messages, call
+   * [awaitSent] instead.
+   *
+   * Example:
+   * ```
+   * val (event) = queue.expectSent(1)
+   * ```
+   */
+  public fun expectSent(messageCount: Int): List<Message> {
+    lock.withLock {
+      return takeMessages(messageCount, this.sentMessages)
+          ?: throw IllegalStateException(
+              buildMessageExceptionString(messageCount, this.sentMessages, "sent")
+          )
+    }
+  }
+
+  /**
+   * Checks if the queue has the given number of failed messages (passed to [Queue.retry] or
+   * [Queue.deleteFailed]).
+   * - If it does: Returns a copy of the failed messages, and then clears the [failedMessages] list
+   * - If it does not: Throws an [IllegalStateException]
+   *
+   * If you want to wait until some other thread fails processing of the given number of messages,
+   * call [awaitFailed] instead.
+   *
+   * Example:
+   * ```
+   * val (event) = queue.expectFailed(1)
+   * ```
+   */
+  public fun expectFailed(messageCount: Int): List<Message> {
+    lock.withLock {
+      return takeMessages(messageCount, this.failedMessages)
+          ?: throw IllegalStateException(
+              buildMessageExceptionString(messageCount, this.failedMessages, "failed")
+          )
     }
   }
 
@@ -294,5 +336,57 @@ public class MockQueue : Queue {
 
   private companion object {
     private val DEFAULT_TIMEOUT = Duration.ofSeconds(10)
+
+    /**
+     * Checks if the given [messages] list has size equal to the given [expectedMessageCount].
+     * - If true: Returns a copy of the given messages, and clear the old messages list
+     * - If false: Returns `null`
+     *
+     * [MockQueue.lock] must be held when this is called on one of its message lists. This is the
+     * case in all the `await`/`expect` messages where we call this.
+     */
+    private fun takeMessages(
+        expectedMessageCount: Int,
+        messages: MutableList<Message>,
+    ): List<Message>? {
+      if (messages.size == expectedMessageCount) {
+        val copy = ArrayList(messages)
+        messages.clear()
+        return copy
+      } else {
+        return null
+      }
+    }
+
+    private fun buildMessageExceptionString(
+        expectedMessageCount: Int,
+        messages: List<Message>,
+        messageType: String,
+    ): String {
+      return buildString {
+        append("Expected ")
+        append(expectedMessageCount)
+        append(" ")
+        append(messageType)
+        append(" messages on queue, got ")
+        append(messages.size)
+
+        // If there were more than 0 messages in the queue, include the messages in the exception
+        // for debugging
+        if (messages.isNotEmpty()) {
+          append(":")
+
+          messages.forEachIndexed { index, message ->
+            append("\n\t")
+            // If there's more than 1 message, we use a numbered list to separate them
+            if (messages.size != 1) {
+              append(index + 1)
+              append(": ")
+            }
+            append(message.body)
+          }
+        }
+      }
+    }
   }
 }

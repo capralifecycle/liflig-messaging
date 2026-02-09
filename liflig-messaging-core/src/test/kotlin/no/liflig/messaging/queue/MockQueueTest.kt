@@ -1,5 +1,6 @@
 package no.liflig.messaging.queue
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -104,6 +105,84 @@ internal class MockQueueTest {
 
     result.shouldNotBeNull().map { it.body }.shouldBe(messageBodies)
     queue.sentMessages.shouldBeEmpty()
+  }
+
+  @Test
+  fun `test successful expectProcessed`() {
+    val messages = listOf(createMessage("msg1"), createMessage("msg2"))
+    queue.processedMessages.addAll(messages)
+
+    val actualMessages = queue.expectProcessed(2)
+    actualMessages.shouldBe(messages)
+    queue.processedMessages.shouldBeEmpty()
+  }
+
+  @Test
+  fun `test successful expectSent`() {
+    val messages = listOf(createMessage("msg1"), createMessage("msg2"))
+    queue.sentMessages.addAll(messages)
+
+    val actualMessages = queue.expectSent(2)
+    actualMessages.shouldBe(messages)
+    queue.sentMessages.shouldBeEmpty()
+  }
+
+  @Test
+  fun `test successful expectFailed`() {
+    val messages = listOf(createMessage("msg1"), createMessage("msg2"))
+    queue.failedMessages.addAll(messages)
+
+    val actualMessages = queue.expectFailed(2)
+    actualMessages.shouldBe(messages)
+    queue.failedMessages.shouldBeEmpty()
+  }
+
+  @Test
+  fun `test expectProcessed exception`() {
+    val messages = listOf(createMessage("msg1"), createMessage("msg2"))
+    queue.processedMessages.addAll(messages)
+
+    val exception = shouldThrow<IllegalStateException> { queue.expectProcessed(3) }
+    exception.message.shouldBe(
+        """
+        Expected 3 processed messages on queue, got 2:
+        	1: msg1
+        	2: msg2
+        """
+            .trimIndent()
+    )
+  }
+
+  @Test
+  fun `test expectSent exception`() {
+    val messages = listOf(createMessage("msg1"), createMessage("msg2"))
+    queue.sentMessages.addAll(messages)
+
+    val exception = shouldThrow<IllegalStateException> { queue.expectSent(3) }
+    exception.message.shouldBe(
+        """
+        Expected 3 sent messages on queue, got 2:
+        	1: msg1
+        	2: msg2
+        """
+            .trimIndent()
+    )
+  }
+
+  @Test
+  fun `test expectFailed exception`() {
+    val messages = listOf(createMessage("msg1"), createMessage("msg2"))
+    queue.failedMessages.addAll(messages)
+
+    val exception = shouldThrow<IllegalStateException> { queue.expectFailed(3) }
+    exception.message.shouldBe(
+        """
+        Expected 3 failed messages on queue, got 2:
+        	1: msg1
+        	2: msg2
+        """
+            .trimIndent()
+    )
   }
 }
 
