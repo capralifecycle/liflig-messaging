@@ -119,10 +119,7 @@ public class MockTopic : Topic {
     }
   }
 
-  /**
-   * Clears sent, processed and failed messages on the queue. Call this between tests to reset
-   * state.
-   */
+  /** Clears published messages on the topic. Call this between tests to reset state. */
   public fun clear() {
     lock.withLock { publishedMessages.clear() }
   }
