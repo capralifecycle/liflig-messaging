@@ -25,6 +25,7 @@
   <modules>
     <module>liflig-messaging-core</module>
     <module>liflig-messaging-awssdk</module>
+    <module>liflig-messaging-gcp</module>
     <module>liflig-messaging-sqs-lambda</module>
   </modules>
 
@@ -84,6 +85,11 @@
       <dependency>
         <groupId>no.liflig</groupId>
         <artifactId>liflig-messaging-awssdk</artifactId>
+        <version>${revision}</version>
+      </dependency>
+      <dependency>
+        <groupId>no.liflig</groupId>
+        <artifactId>liflig-messaging-gcp</artifactId>
         <version>${revision}</version>
       </dependency>
 
