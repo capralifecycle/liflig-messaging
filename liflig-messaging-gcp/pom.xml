@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>no.liflig</groupId>
+    <artifactId>liflig-messaging</artifactId>
+    <version>${revision}</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>liflig-messaging-gcp</artifactId>
+  <description>
+    Implements the Queue and Topic interfaces for Google Cloud Pub/Sub, using the Google Cloud
+    client library.
+  </description>
+
+  <properties>
+    <maven.deploy.skip>false</maven.deploy.skip>
+
+    <!-- Google Cloud -->
+    <google-libraries-bom.version>26.83.0</google-libraries-bom.version>
+
+    <!-- Test -->
+    <testcontainers.version>1.21.4</testcontainers.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Google Cloud. The libraries-bom aligns versions of all Google Cloud client libraries and
+           their (many) shared transitive dependencies, which keeps the Maven Enforcer's dependency
+           convergence rules happy. -->
+      <dependency>
+        <groupId>com.google.cloud</groupId>
+        <artifactId>libraries-bom</artifactId>
+        <version>${google-libraries-bom.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>no.liflig</groupId>
+      <artifactId>liflig-messaging-core</artifactId>
+    </dependency>
+
+    <!-- Google Cloud Pub/Sub -->
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-pubsub</artifactId>
+    </dependency>
+
+    <!-- Testing -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>gcloud</artifactId>
+      <version>${testcontainers.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>
