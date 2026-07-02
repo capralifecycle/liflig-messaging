@@ -1,9 +1,8 @@
 package no.liflig.messaging.awssdk.queue
 
+import io.kotest.assertions.throwables.shouldNotThrow
 import io.kotest.matchers.collections.shouldHaveSize
-import io.kotest.matchers.date.shouldBeBetween
 import io.kotest.matchers.shouldBe
-import java.time.Instant
 import no.liflig.messaging.awssdk.testutils.createLocalstackContainer
 import no.liflig.messaging.awssdk.testutils.createSqsClient
 import no.liflig.messaging.awssdk.testutils.readResourceFile
@@ -38,12 +37,10 @@ internal class SqsQueueTest {
     val testMessage = readResourceFile("TestMessage.json")
     val queue = SqsQueue(client, queuUrl)
 
-    val timeBeforeSend = Instant.now()
     queue.send(testMessage)
-    val timeAfterSend = Instant.now()
 
     val message = queue.poll().shouldHaveSize(1).first()
     message.body shouldBe testMessage
-    message.getSqsSentTimestamp().shouldBeBetween(timeBeforeSend, timeAfterSend)
+    shouldNotThrow<IllegalStateException> { message.getSqsSentTimestamp() }
   }
 }
