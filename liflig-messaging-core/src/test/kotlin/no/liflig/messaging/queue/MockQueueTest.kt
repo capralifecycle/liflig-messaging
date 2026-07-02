@@ -5,6 +5,8 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import java.time.Instant
+import java.time.InstantSource
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
@@ -316,6 +318,27 @@ internal class MockQueueTest {
 
     queue.failedMessages.shouldBe(messagesWithRetry)
     queue.failedMessagesWithRetry.shouldBe(messagesWithRetry)
+  }
+
+  @Test
+  fun `send stamps SentTimestamp from the clock like SQS does`() {
+    val sentAt = Instant.ofEpochMilli(1_700_000_000_000)
+    val queue = MockQueue(clock = InstantSource.fixed(sentAt))
+
+    queue.send("test")
+
+    val (message) = queue.expectSent(1)
+    message.getSqsSentTimestamp().shouldBe(sentAt)
+  }
+
+  @Test
+  fun `send keeps a caller-supplied SentTimestamp`() {
+    val queue = MockQueue(clock = InstantSource.fixed(Instant.ofEpochMilli(1_700_000_000_000)))
+
+    queue.send("test", systemAttributes = mapOf("SentTimestamp" to "0"))
+
+    val (message) = queue.expectSent(1)
+    message.getSqsSentTimestamp().shouldBe(Instant.EPOCH)
   }
 
   @Test

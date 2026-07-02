@@ -3,6 +3,7 @@
 package no.liflig.messaging.queue
 
 import java.time.Duration
+import java.time.InstantSource
 import java.util.UUID
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.Lock
@@ -24,8 +25,16 @@ import no.liflig.messaging.utils.await
  *   [awaitSent] / [expectSent].
  *
  * If you reuse the same queue across tests, you should call [clear] between each test.
+ *
+ * @param clock Used to stamp a `SentTimestamp` system attribute on messages passed to [send], the
+ *   same way AWS SQS does. This lets message processors that read [Message.getSqsSentTimestamp]
+ *   work against a [MockQueue] without every test having to set the attribute itself. Defaults to
+ *   the system UTC clock; inject a fixed [InstantSource] to control the timestamp in tests. A
+ *   `SentTimestamp` explicitly passed to [send] takes precedence and is left untouched.
  */
-public class MockQueue : Queue {
+public class MockQueue(
+    private val clock: InstantSource = InstantSource.system(),
+) : Queue {
   /**
    * Messages sent with [send], that have not been processed yet.
    *
@@ -109,11 +118,19 @@ public class MockQueue : Queue {
       delay: Duration?,
   ): MessageId {
     lock.withLock {
+      // SQS stamps a SentTimestamp on every message; mirror that so processors reading
+      // Message.getSqsSentTimestamp work here too. A caller-supplied value wins.
+      val systemAttributesWithSentTimestamp =
+          if ("SentTimestamp" in systemAttributes) {
+            systemAttributes
+          } else {
+            systemAttributes + ("SentTimestamp" to clock.instant().toEpochMilli().toString())
+          }
       val message =
           Message(
               id = MessageId(UUID.randomUUID().toString()),
               body = messageBody,
-              systemAttributes = systemAttributes,
+              systemAttributes = systemAttributesWithSentTimestamp,
               customAttributes = customAttributes,
               receiptHandle = UUID.randomUUID().toString(),
           )
