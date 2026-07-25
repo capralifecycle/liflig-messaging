@@ -12,16 +12,16 @@ import no.liflig.logging.withLoggingContext
  */
 public interface MessagePollerObserver {
   /** Called when [MessagePoller] starts up. */
-  public fun onPollerStartup()
+  public fun onPollerStartup(): Unit = Unit
 
   /** Called when [MessagePoller] polls messages from its queue. */
-  public fun onPoll(messages: List<Message>)
+  public fun onPoll(messages: List<Message>): Unit = Unit
 
   /** Called when an exception is thrown when [MessagePoller] polls from its queue. */
-  public fun onPollException(exception: Throwable)
+  public fun onPollException(exception: Throwable): Unit = Unit
 
   /** Called by [MessagePoller.close]. */
-  public fun onPollerShutdown()
+  public fun onPollerShutdown(): Unit = Unit
 
   /**
    * Called when a [MessagePoller] thread detects that it has been interrupted. This is typically
@@ -30,7 +30,7 @@ public interface MessagePollerObserver {
    * @param cause If the thread detected interruption in the context of an exception, it is passed
    *   here.
    */
-  public fun onPollerThreadStopped(cause: Throwable?)
+  public fun onPollerThreadStopped(cause: Throwable?): Unit = Unit
 
   /**
    * Called when [MessagePoller] starts processing a message, before passing it to the
@@ -38,34 +38,34 @@ public interface MessagePollerObserver {
    *
    * This is called inside the scope of [wrapMessageProcessing].
    */
-  public fun onMessageProcessing(message: Message)
+  public fun onMessageProcessing(message: Message): Unit = Unit
 
   /**
    * Called when [MessageProcessor] returns [ProcessingResult.Success].
    *
    * This is called inside the scope of [wrapMessageProcessing].
    */
-  public fun onMessageSuccess(message: Message)
+  public fun onMessageSuccess(message: Message): Unit = Unit
 
   /**
    * Called when [MessageProcessor] returns [ProcessingResult.Failure].
    *
    * This is called inside the scope of [wrapMessageProcessing].
    */
-  public fun onMessageFailure(message: Message, result: ProcessingResult.Failure)
+  public fun onMessageFailure(message: Message, result: ProcessingResult.Failure): Unit = Unit
 
   /**
    * Called when [MessageProcessor] throws an exception while processing a message.
    *
    * This is called inside the scope of [wrapMessageProcessing].
    */
-  public fun onMessageException(message: Message, exception: Throwable)
+  public fun onMessageException(message: Message, exception: Throwable): Unit = Unit
 
   /**
    * Wraps [MessagePoller]'s code for processing the given message (including the call to
    * [MessageProcessor.process]). This allows you to add scope-based context to the message
-   * processing. For example, [DefaultMessagePollerObserver] uses
-   * [no.liflig.logging.withLoggingContext] to add the queue message ID to the logging context.
+   * processing. For example, [DefaultMessagePollerObserver] uses [withLoggingContext] to add the
+   * queue message ID to the logging context.
    *
    * The implementation of this method MUST call the given [messageProcessingBlock] once, and only
    * once.
@@ -76,15 +76,14 @@ public interface MessagePollerObserver {
   public fun <ReturnT> wrapMessageProcessing(
       message: Message,
       messageProcessingBlock: () -> ReturnT,
-  ): ReturnT
+  ): ReturnT = messageProcessingBlock()
 
   /**
    * Wraps [MessagePoller]'s main polling loop (including message processing), as well as startup
    * and shutdown. This allows you to add scope-based context to the whole lifetime of a message
    * poller (the given [pollerBlock] will not exit until the poller is closed). For example,
-   * [DefaultMessagePollerObserver] uses [no.liflig.logging.withLoggingContext] to add the message
-   * poller name to the logging context, so users can distinguish between logs from different
-   * pollers.
+   * [DefaultMessagePollerObserver] uses [withLoggingContext] to add the message poller name to the
+   * logging context, so users can distinguish between logs from different pollers.
    *
    * The implementation of this method MUST call the given [pollerBlock] once, and only once.
    *
@@ -93,16 +92,15 @@ public interface MessagePollerObserver {
    * @return The same type as the given [pollerBlock] (so you must return the result of calling the
    *   lambda).
    */
-  public fun <ReturnT> wrapPoller(pollerBlock: () -> ReturnT): ReturnT
+  public fun <ReturnT> wrapPoller(pollerBlock: () -> ReturnT): ReturnT = pollerBlock()
 }
 
 /**
  * Default implementation of [MessagePollerObserver], using `liflig-logging` to log descriptive
  * messages for the various events in [MessagePoller]'s polling loop.
  *
- * [wrapMessageProcessing] uses [no.liflig.logging.withLoggingContext] to add a `queueMessageId`
- * field to all logs in the scope of processing the message, so you can trace the logs for a
- * specific message.
+ * [wrapMessageProcessing] uses [withLoggingContext] to add a `queueMessageId` field to all logs in
+ * the scope of processing the message, so you can trace the logs for a specific message.
  *
  * If you want a quieter observer that only logs in case of failure, you may want to use
  * [QuietMessagePollerObserver] instead.
@@ -229,3 +227,49 @@ public open class QuietMessagePollerObserver(
 
   override fun onMessageSuccess(message: Message) {}
 }
+
+/**
+ * Observer that calls each of its delegates in order. Wrapping methods are nested in order, with
+ * the first delegate applied first.
+ */
+internal class ChainedMessagePollerObserver(private val delegates: List<MessagePollerObserver>) :
+    MessagePollerObserver {
+  override fun onPollerStartup(): Unit = delegates.forEach { it.onPollerStartup() }
+
+  override fun onPoll(messages: List<Message>): Unit = delegates.forEach { it.onPoll(messages) }
+
+  override fun onPollException(exception: Throwable): Unit =
+      delegates.forEach { it.onPollException(exception) }
+
+  override fun onPollerShutdown(): Unit = delegates.forEach { it.onPollerShutdown() }
+
+  override fun onPollerThreadStopped(cause: Throwable?): Unit =
+      delegates.forEach { it.onPollerThreadStopped(cause) }
+
+  override fun onMessageProcessing(message: Message): Unit =
+      delegates.forEach { it.onMessageProcessing(message) }
+
+  override fun onMessageSuccess(message: Message): Unit =
+      delegates.forEach { it.onMessageSuccess(message) }
+
+  override fun onMessageFailure(message: Message, result: ProcessingResult.Failure): Unit =
+      delegates.forEach { it.onMessageFailure(message, result) }
+
+  override fun onMessageException(message: Message, exception: Throwable): Unit =
+      delegates.forEach { it.onMessageException(message, exception) }
+
+  override fun <ReturnT> wrapMessageProcessing(
+      message: Message,
+      messageProcessingBlock: () -> ReturnT,
+  ): ReturnT =
+      delegates.foldRight(messageProcessingBlock) { observer, acc ->
+        { observer.wrapMessageProcessing(message, acc) }
+      }()
+
+  override fun <ReturnT> wrapPoller(pollerBlock: () -> ReturnT): ReturnT =
+      delegates.foldRight(pollerBlock) { observer, acc -> { observer.wrapPoller(acc) } }()
+}
+
+/** Chains [MessagePollerObserver]s together in order. */
+public fun chained(vararg delegates: MessagePollerObserver): MessagePollerObserver =
+    ChainedMessagePollerObserver(delegates.toList())
