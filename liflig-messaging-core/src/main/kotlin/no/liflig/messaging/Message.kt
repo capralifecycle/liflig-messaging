@@ -1,5 +1,6 @@
 package no.liflig.messaging
 
+import io.opentelemetry.context.Context
 import java.time.Instant
 
 public data class Message(
@@ -47,6 +48,13 @@ public data class Message(
      *   event (through the `eventSourceArn` field)
      */
     val source: String? = null,
+    /**
+     * An OpenTelemetry trace context. Populate this if the originating queue supports propagating
+     * trace context.
+     *
+     * See [no.liflig.messaging.observability.OpenTelemetryMessagePollerObserver]
+     */
+    val context: Context? = null,
 ) {
   /**
    * In AWS SQS, the message's [systemAttributes] contain a `SentTimestamp` with the time that the

@@ -57,6 +57,7 @@
     <!-- Logging -->
     <slf4j.version>2.0.18</slf4j.version>
     <liflig-logging.version>3.20260603.090535</liflig-logging.version>
+    <opentelemetry.version>1.64.0</opentelemetry.version>
 
     <!-- Serialization -->
     <kotlinx-serialization.version>1.8.0</kotlinx-serialization.version>
@@ -95,6 +96,13 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-bom</artifactId>
+        <version>${opentelemetry.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
 
       <!-- Testing -->
       <dependency>
@@ -114,6 +122,10 @@
       <artifactId>liflig-logging</artifactId>
       <version>${liflig-logging.version}</version>
     </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api</artifactId>
+    </dependency>
 
     <!-- Testing -->
     <dependency>
@@ -131,6 +143,12 @@
       <groupId>org.awaitility</groupId>
       <artifactId>awaitility</artifactId>
       <version>${awaitility.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.mockk</groupId>
+      <artifactId>mockk-jvm</artifactId>
+      <version>1.14.11</version>
       <scope>test</scope>
     </dependency>
     <!-- Logging for tests -->

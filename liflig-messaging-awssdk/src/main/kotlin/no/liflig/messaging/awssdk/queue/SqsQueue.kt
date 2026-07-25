@@ -2,6 +2,9 @@
 
 package no.liflig.messaging.awssdk.queue
 
+import io.opentelemetry.api.GlobalOpenTelemetry
+import io.opentelemetry.context.Context
+import io.opentelemetry.context.propagation.TextMapGetter
 import java.time.Duration
 import no.liflig.logging.getLogger
 import no.liflig.messaging.Message
@@ -149,5 +152,32 @@ internal fun sqsMessageToInternalFormat(sqsMessage: SQSMessage, source: String):
       systemAttributes = sqsMessage.attributesAsStrings() ?: emptyMap(),
       customAttributes = customAttributes,
       source = source,
+      context = sqsMessage.extractContext(),
   )
+}
+
+/**
+ * Attempt to pull trace context from `AWSTraceHeader`.
+ *
+ * This function tries to extract an OpenTelemetry Context using the
+ * [io.opentelemetry.context.propagation.TextMapPropagator]s that are registered in the global OTEL
+ * instance. If no X-Ray propagator is registered, for instance if no OTEL java agent is attached to
+ * the JVM, it will return the bare root context.
+ *
+ * If no trace header is present, we return null and leave it up to the caller to decide whether to
+ * initiate a new trace.
+ */
+internal fun SQSMessage.extractContext(): Context? {
+  val header = this.attributes()[MessageSystemAttributeName.AWS_TRACE_HEADER] ?: return null
+
+  val propagator = GlobalOpenTelemetry.getOrNoop().propagators.textMapPropagator
+
+  val getter =
+      object : TextMapGetter<Map<String, String>> {
+        override fun keys(carrier: Map<String, String>): Iterable<String?> = carrier.keys
+
+        override fun get(carrier: Map<String, String>?, key: String): String? = carrier?.get(key)
+      }
+
+  return propagator.extract(Context.root(), mapOf("X-Amzn-Trace-Id" to header), getter)
 }
