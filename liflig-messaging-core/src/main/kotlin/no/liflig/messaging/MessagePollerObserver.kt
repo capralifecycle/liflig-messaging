@@ -269,7 +269,3 @@ internal class ChainedMessagePollerObserver(private val delegates: List<MessageP
   override fun <ReturnT> wrapPoller(pollerBlock: () -> ReturnT): ReturnT =
       delegates.foldRight(pollerBlock) { observer, acc -> { observer.wrapPoller(acc) } }()
 }
-
-/** Chains [MessagePollerObserver]s together in order. */
-public fun chained(vararg delegates: MessagePollerObserver): MessagePollerObserver =
-    ChainedMessagePollerObserver(delegates.toList())

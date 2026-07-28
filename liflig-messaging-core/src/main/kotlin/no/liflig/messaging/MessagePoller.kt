@@ -9,15 +9,15 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Predicate
 import kotlin.time.Duration.Companion.seconds
 import no.liflig.logging.getLogger
+import no.liflig.messaging.observability.OpenTelemetryMessagePollerObserver
 import no.liflig.messaging.queue.Queue
 
 /**
- * Polls the given [Queue][no.liflig.messaging.queue.Queue] for messages, and passes them to the
- * given [MessageProcessor]. If processing succeeded, the message is deleted, otherwise we backoff
- * to retry later.
+ * Polls the given [Queue][Queue] for messages, and passes them to the given [MessageProcessor]. If
+ * processing succeeded, the message is deleted, otherwise we backoff to retry later.
  *
- * Call [MessagePoller.start] on application start-up. This will spawn threads that run side-by-side
- * with your application, continuously polling messages.
+ * Call [start] on application start-up. This will spawn threads that run side-by-side with your
+ * application, continuously polling messages.
  *
  * @param concurrentPollers Number of threads to spawn. Each thread continuously polls the queue (in
  *   the SQS implementation, message polling waits for up to 20 seconds if there are no available
@@ -73,7 +73,7 @@ public class MessagePoller(
 
           observer.onPollException(e)
 
-          /** See [MessagePoller.POLLER_RETRY_TIMEOUT]. */
+          /** See [POLLER_RETRY_TIMEOUT]. */
           Thread.sleep(POLLER_RETRY_TIMEOUT.inWholeMilliseconds)
         }
       }
@@ -174,3 +174,105 @@ private class MessagePollerThreadFactory(private val namePrefix: String) : Threa
     return Thread(runnable, "${namePrefix}-${threadCount.getAndIncrement()}")
   }
 }
+
+public class MessagePollerBuilder {
+  /**
+   * Used as a prefix for thread names, and if using logging, this is included in the logs. If
+   * you're running multiple MessagePollers in your application, you should provide a more specific
+   * name here, to make debugging easier.
+   */
+  public var pollerName: String = "MessagePoller"
+
+  public var queueName: String = ""
+
+  /**
+   * Number of threads to spawn. Each thread continuously polls the queue (in the SQS
+   * implementation, message polling waits for up to 20 seconds if there are no available messages,
+   * so continuously polling is not a concern).
+   */
+  public var concurrentPollers: Int = 1
+
+  /**
+   * Enables logging via `liflig-logging`. [quiet] controls whether we only log on failure.
+   *
+   * See [DefaultMessagePollerObserver]
+   */
+  public var logging: Boolean = true
+
+  /** If true, logging will only occur on failure. If false log each poll and success as well. */
+  public var quiet: Boolean = false
+
+  /**
+   * Enables OpenTelemetry trace context propagation. A span will be created and set as current for
+   * each invocation of [MessageProcessor.process].
+   */
+  public var tracing: Boolean = false
+
+  /**
+   * If you want custom logic to determine when the `MessagePoller`'s polling loop should stop, you
+   * can pass this "stop predicate" function. When an exception is thrown in the polling loop, this
+   * predicate is called with the exception. If it returns true, the poller stops.
+   */
+  public var stopPredicate: Predicate<Throwable>? = null
+
+  internal val observers: MutableList<MessagePollerObserver> = mutableListOf()
+
+  public fun observer(observer: MessagePollerObserver) {
+    observers.add(observer)
+  }
+}
+
+/**
+ * Build a new [MessagePoller]. Can be configured further in [builder].
+ *
+ * @sample sample
+ */
+public fun messagePoller(
+    queue: Queue,
+    messageProcessor: MessageProcessor,
+    builder: MessagePollerBuilder.() -> Unit,
+): MessagePoller {
+  val builder = MessagePollerBuilder()
+  builder.builder()
+
+  if (builder.logging) {
+    val logger =
+        if (builder.quiet) {
+          QuietMessagePollerObserver(
+              pollerName = builder.pollerName,
+          )
+        } else {
+          DefaultMessagePollerObserver(
+              builder.pollerName,
+              loggingMode = queue.observer?.loggingMode ?: MessageLoggingMode.JSON,
+          )
+        }
+
+    builder.observers.addFirst(logger)
+  }
+
+  if (builder.tracing) {
+    val tracer =
+        OpenTelemetryMessagePollerObserver(
+            builder.queueName,
+            builder.pollerName,
+        )
+    builder.observers.addFirst(tracer)
+  }
+
+  return MessagePoller(
+      queue = queue,
+      messageProcessor = messageProcessor,
+      concurrentPollers = builder.concurrentPollers,
+      name = builder.pollerName,
+      observer = ChainedMessagePollerObserver(builder.observers),
+      stopPredicate = builder.stopPredicate,
+  )
+}
+
+private fun sample(queue: Queue, messageProcessor: MessageProcessor): MessagePoller =
+    messagePoller(queue, messageProcessor) {
+      pollerName = "NoopPoller"
+      queueName = "mock-queue"
+      tracing = true
+    }

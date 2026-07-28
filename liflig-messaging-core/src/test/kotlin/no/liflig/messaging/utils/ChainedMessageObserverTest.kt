@@ -2,12 +2,12 @@ package no.liflig.messaging.utils
 
 import io.mockk.spyk
 import io.mockk.verifyOrder
+import no.liflig.messaging.ChainedMessagePollerObserver
 import no.liflig.messaging.Message
 import no.liflig.messaging.MessageId
 import no.liflig.messaging.MessagePoller
 import no.liflig.messaging.MessagePollerObserver
 import no.liflig.messaging.ProcessingResult
-import no.liflig.messaging.chained
 import no.liflig.messaging.queue.MockQueue
 import org.junit.jupiter.api.Test
 
@@ -30,7 +30,7 @@ internal class ChainedMessageObserverTest {
   val observer1 = spyk(NoopObserver())
   val observer2 = spyk(NoopObserver())
 
-  val observer = chained(observer1, observer2)
+  val observer = ChainedMessagePollerObserver(listOf(observer1, observer2))
   val poller =
       MessagePoller(
           queue,
