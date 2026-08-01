@@ -7,7 +7,7 @@
   <parent>
     <groupId>no.liflig</groupId>
     <artifactId>kotlin-parent</artifactId>
-    <version>3.20260708.165410</version>
+    <version>3.20260718.024935</version>
   </parent>
 
   <!--suppress MavenRedundantGroupId -->
@@ -63,7 +63,7 @@
     <kotlinx-serialization.version>1.8.0</kotlinx-serialization.version>
 
     <!-- Testing -->
-    <junit.version>6.1.1</junit.version>
+    <junit.version>6.1.2</junit.version>
     <kotest.version>6.2.2</kotest.version>
     <awaitility.version>4.3.0</awaitility.version>
     <logback.version>1.5.38</logback.version>
