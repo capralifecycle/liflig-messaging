@@ -133,7 +133,7 @@ public open class DefaultMessagePollerObserver(
 
   override fun onPollException(exception: Throwable) {
     logger.error(exception) {
-      "Failed to poll messages. Retrying in ${MessagePoller.POLLER_RETRY_TIMEOUT.inWholeSeconds} seconds"
+      "Failed to poll messages. Retrying in ${MessagePoller.POLLER_RETRY_TIMEOUT.toSeconds()} seconds"
     }
   }
 
