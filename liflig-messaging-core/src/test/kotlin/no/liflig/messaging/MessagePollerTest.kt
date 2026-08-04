@@ -1,5 +1,7 @@
 package no.liflig.messaging
 
+import io.kotest.assertions.nondeterministic.continually
+import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import java.time.Duration
@@ -50,7 +52,7 @@ internal class MessagePollerTest {
   }
 
   @Test
-  fun `test backoff`() {
+  suspend fun `test backoff`() {
     val queue = MockQueue()
     val slept = AtomicLong(0)
 
@@ -72,11 +74,11 @@ internal class MessagePollerTest {
           queue.awaitFailedWithoutRetry(1)
         }
 
-    slept.get() shouldBe (17000 * 3)
+    eventually { slept.get() shouldBe (17000 * 3) }
   }
 
   @Test
-  fun `test batched backoff`() {
+  suspend fun `test batched backoff`() {
     val queue = MockQueue()
     val slept = AtomicLong(0)
 
@@ -97,11 +99,11 @@ internal class MessagePollerTest {
           queue.awaitFailedWithoutRetry(3)
         }
 
-    slept.get() shouldBe (17000)
+    eventually { slept.get() shouldBe (17000) }
   }
 
   @Test
-  fun `test no backoff`() {
+  suspend fun `test no backoff`() {
     val queue = MockQueue()
     val slept = AtomicLong(0)
 
@@ -120,6 +122,6 @@ internal class MessagePollerTest {
           queue.awaitFailedWithoutRetry(3)
         }
 
-    slept.get() shouldBe (0)
+    continually(200) { slept.get() shouldBe 0 }
   }
 }
