@@ -2,12 +2,15 @@
 
 package no.liflig.messaging
 
+import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.ReentrantLock
 import java.util.function.Predicate
-import kotlin.time.Duration.Companion.seconds
+import kotlin.concurrent.withLock
 import no.liflig.logging.getLogger
 import no.liflig.messaging.observability.OpenTelemetryMessagePollerObserver
 import no.liflig.messaging.queue.Queue
@@ -42,9 +45,13 @@ public class MessagePoller(
             loggingMode = queue.observer?.loggingMode ?: MessageLoggingMode.JSON,
         ),
     private val stopPredicate: Predicate<Throwable>? = null,
+    private val sleep: (Long) -> Unit = Thread::sleep,
 ) : AutoCloseable {
   private val executor: ExecutorService =
       Executors.newFixedThreadPool(concurrentPollers, MessagePollerThreadFactory(namePrefix = name))
+
+  private val lock = ReentrantLock()
+  private var delayNextPollUntil: Instant? = null
 
   /**
    * Spawns a number of threads equal to [concurrentPollers] (default 1). Each thread continuously
@@ -64,25 +71,56 @@ public class MessagePoller(
   private fun runPollLoop() {
     observer.wrapPoller {
       while (!isStopped()) {
-        try {
-          poll()
-        } catch (e: Throwable) {
-          if (isStopped(cause = e)) {
-            break
-          }
+        val delayNextPoll: Duration =
+            try {
+              poll()
+            } catch (e: Throwable) {
+              if (isStopped(cause = e)) {
+                break
+              }
 
-          observer.onPollException(e)
+              observer.onPollException(e)
 
-          /** See [POLLER_RETRY_TIMEOUT]. */
-          Thread.sleep(POLLER_RETRY_TIMEOUT.inWholeMilliseconds)
-        }
+              /** See [POLLER_RETRY_TIMEOUT]. */
+              POLLER_RETRY_TIMEOUT
+            }
+
+        updateBackoff(delayNextPoll)?.let { sleep(it.toMillis()) }
       }
     }
   }
 
-  internal fun poll() {
+  /**
+   * Takes the wanted backoff from a [poll] invocation, and returns the actual duration the poller
+   * thread should wait. All poller threads will wait at least that long on next invocation.
+   *
+   * This should ensure that concurrent pollers cooperate and agree on how long to pause polling. If
+   * poller A wants to wait 10 seconds, and poller B returns 1 second later and wants to continue
+   * immediately, then both pollers will respect poller A's decision.
+   */
+  private fun updateBackoff(backoff: Duration): Duration? {
+    val now = Instant.now()
+
+    lock.withLock {
+      now.plus(backoff).let {
+        if (delayNextPollUntil == null || it > delayNextPollUntil) {
+          delayNextPollUntil = it
+        }
+      }
+
+      return if (now >= delayNextPollUntil) {
+        delayNextPollUntil = null
+        null
+      } else {
+        Duration.between(now, delayNextPollUntil)
+      }
+    }
+  }
+
+  internal fun poll(): Duration {
     val messages = queue.poll()
     observer.onPoll(messages)
+    var nextDelay = Duration.ZERO
 
     for (message in messages) {
       val stopped: Boolean =
@@ -97,6 +135,11 @@ public class MessagePoller(
                 }
                 is ProcessingResult.Failure -> {
                   observer.onMessageFailure(message, result)
+
+                  if (nextDelay < result.backoff) {
+                    nextDelay = result.backoff
+                  }
+
                   if (result.retry) {
                     queue.retry(message)
                   } else {
@@ -116,9 +159,10 @@ public class MessagePoller(
             }
           }
       if (stopped) {
-        return
+        break
       }
     }
+    return nextDelay
   }
 
   /** Stops all poller threads currently running. Does not wait for them to shut down. */
@@ -162,7 +206,7 @@ public class MessagePoller(
      * a temporary problem (such as a network failure), because `Queue.poll` can already take up to
      * 20 seconds when polling. So delaying further polling by 10 seconds should not be an issue.
      */
-    internal val POLLER_RETRY_TIMEOUT = 10.seconds
+    internal val POLLER_RETRY_TIMEOUT = Duration.ofSeconds(10)
   }
 }
 

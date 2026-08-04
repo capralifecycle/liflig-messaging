@@ -1,5 +1,6 @@
 package no.liflig.messaging
 
+import java.time.Duration
 import no.liflig.logging.LogLevel
 
 /**
@@ -33,5 +34,8 @@ public sealed class ProcessingResult {
        * lower this if it represents an expected failure.
        */
       val severity: LogLevel = LogLevel.ERROR,
+
+      /** Signal to the [MessagePoller] that it should delay fetching the next batch. */
+      val backoff: Duration = Duration.ZERO,
   ) : ProcessingResult()
 }

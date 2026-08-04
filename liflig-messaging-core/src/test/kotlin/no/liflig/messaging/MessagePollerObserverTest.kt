@@ -15,8 +15,7 @@ import no.liflig.messaging.testutils.TestMessage
 import no.liflig.messaging.testutils.TestMessagePollerObserver
 import no.liflig.messaging.testutils.TestMessageProcessor
 import org.awaitility.Awaitility.await
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -24,26 +23,19 @@ import org.junit.jupiter.api.TestInstance
 private val log = getLogger()
 
 /** Test if MessagePoller correctly invokes the observer */
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestInstance(TestInstance.Lifecycle.PER_METHOD)
 internal class MessagePollerObserverTest {
   val queue = MockQueue()
   val testProcessor = TestMessageProcessor()
   val observer = TestMessagePollerObserver()
-  val messagePoller = MessagePoller(queue, testProcessor, observer = observer)
+  val messagePoller = MessagePoller(queue, testProcessor, observer = observer, sleep = {})
 
-  @BeforeAll
+  @BeforeEach
   fun setup() {
     messagePoller.start()
   }
 
-  @BeforeEach
-  fun reset() {
-    queue.sentMessages.clear()
-    testProcessor.reset()
-    observer.reset()
-  }
-
-  @AfterAll
+  @AfterEach
   fun tearDown() {
     messagePoller.close()
   }
@@ -99,10 +91,10 @@ internal class MessagePollerObserverTest {
 
   @Test
   fun `invokes onStartup`() {
-    MessagePoller(queue, testProcessor, observer = observer).use {
-      messagePoller.start()
-
-      observer.startupCount shouldBe 1
+    val obs = TestMessagePollerObserver()
+    MessagePoller(queue, testProcessor, observer = obs).use {
+      it.start()
+      obs.startupCount shouldBe 1
     }
   }
 
@@ -121,13 +113,10 @@ internal class MessagePollerObserverTest {
 
     var loggingContext: LoggingContext? = null
 
-    val processor =
-        object : MessageProcessor {
-          override fun process(message: Message): ProcessingResult {
-            loggingContext = getCopyOfLoggingContext()
-            return ProcessingResult.Success
-          }
-        }
+    val processor = MessageProcessor {
+      loggingContext = getCopyOfLoggingContext()
+      ProcessingResult.Success
+    }
 
     val queue = MockQueue()
 
