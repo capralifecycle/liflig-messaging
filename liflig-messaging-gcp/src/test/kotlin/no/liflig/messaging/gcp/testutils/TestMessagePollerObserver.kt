@@ -1,0 +1,42 @@
+package no.liflig.messaging.gcp.testutils
+
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
+import no.liflig.messaging.DefaultMessagePollerObserver
+import no.liflig.messaging.Message
+import no.liflig.messaging.MessageLoggingMode
+
+/**
+ * [no.liflig.messaging.MessagePollerObserver] implementation to observe message/poll exceptions in
+ * tests.
+ */
+internal class TestMessagePollerObserver(
+    loggingMode: MessageLoggingMode,
+) : DefaultMessagePollerObserver(loggingMode = loggingMode) {
+  private var observedMessageException: Throwable? = null
+  private var observedPollException: Throwable? = null
+  private val lock = ReentrantLock()
+
+  fun observedMessageException(): Throwable? = lock.withLock { observedMessageException }
+
+  fun observedPollException(): Throwable? = lock.withLock { observedPollException }
+
+  override fun onMessageException(message: Message, exception: Throwable) {
+    super.onMessageException(message, exception)
+
+    lock.withLock { observedMessageException = exception }
+  }
+
+  override fun onPollException(exception: Throwable) {
+    super.onPollException(exception)
+
+    lock.withLock { observedPollException = exception }
+  }
+
+  fun reset() {
+    lock.withLock {
+      observedMessageException = null
+      observedPollException = null
+    }
+  }
+}
