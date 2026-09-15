@@ -124,4 +124,31 @@ internal class MessagePollerTest {
 
     continually(200) { slept.get() shouldBe 0 }
   }
+
+  @Test
+  fun `graceful shutdown should stop at timeout`() {
+    val queue = MockQueue()
+
+    MessagePoller(
+            queue = queue,
+            messageProcessor = { _ ->
+              Thread.sleep(100)
+              ProcessingResult.Success
+            },
+            shutdownTimeout = Duration.ofMillis(250),
+        )
+        .use { messagePoller ->
+          messagePoller.start()
+
+          listOf("1", "2", "3", "4", "5").forEach { queue.send(it) }
+
+          Thread.sleep(10)
+          // Invoke the shutdown hook manually. We don't test the actually test everything
+          // end-to-end
+          messagePoller.shutdownHook?.start()
+
+          queue.awaitProcessed(2, Duration.ofSeconds(2))
+          queue.expectSent(3)
+        }
+  }
 }

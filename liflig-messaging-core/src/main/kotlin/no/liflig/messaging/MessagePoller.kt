@@ -7,9 +7,11 @@ import java.time.Instant
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadFactory
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
 import java.util.function.Predicate
+import kotlin.concurrent.thread
 import kotlin.concurrent.withLock
 import no.liflig.logging.getLogger
 import no.liflig.messaging.observability.OpenTelemetryMessagePollerObserver
@@ -46,12 +48,14 @@ public class MessagePoller(
         ),
     private val stopPredicate: Predicate<Throwable>? = null,
     private val sleep: (Long) -> Unit = Thread::sleep,
+    shutdownTimeout: Duration? = null,
 ) : AutoCloseable {
   private val executor: ExecutorService =
       Executors.newFixedThreadPool(concurrentPollers, MessagePollerThreadFactory(namePrefix = name))
 
   private val lock = ReentrantLock()
   private var delayNextPollUntil: Instant? = null
+  internal val shutdownHook = shutdownTimeout?.let { executor.gracefulShutdown(it) }
 
   /**
    * Spawns a number of threads equal to [concurrentPollers] (default 1). Each thread continuously
@@ -64,6 +68,10 @@ public class MessagePoller(
 
       for (i in 0 until concurrentPollers) {
         executor.submit(::runPollLoop)
+      }
+
+      if (shutdownHook != null) {
+        Runtime.getRuntime().addShutdownHook(shutdownHook)
       }
     }
   }
@@ -259,6 +267,8 @@ public class MessagePollerBuilder {
    */
   public var stopPredicate: Predicate<Throwable>? = null
 
+  public var shutdownTimeout: Duration? = null
+
   internal val observers: MutableList<MessagePollerObserver> = mutableListOf()
 
   public fun observer(observer: MessagePollerObserver) {
@@ -311,8 +321,22 @@ public fun messagePoller(
       name = builder.pollerName,
       observer = ChainedMessagePollerObserver(builder.observers),
       stopPredicate = builder.stopPredicate,
+      shutdownTimeout = builder.shutdownTimeout,
   )
 }
+
+private fun ExecutorService.gracefulShutdown(timeout: Duration): Thread =
+    thread(start = false, name = "pool-shutdown") {
+      shutdown()
+      try {
+        if (!awaitTermination(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+          shutdownNow()
+        }
+      } catch (e: InterruptedException) {
+        shutdownNow()
+        Thread.currentThread().interrupt()
+      }
+    }
 
 private fun sample(queue: Queue, messageProcessor: MessageProcessor): MessagePoller =
     messagePoller(queue, messageProcessor) {
