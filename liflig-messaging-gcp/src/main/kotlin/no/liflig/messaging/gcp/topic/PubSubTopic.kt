@@ -19,6 +19,20 @@ import no.liflig.messaging.topic.TopicObserver
  * to it). You're responsible for the lifecycle of the [Publisher]: when your application shuts
  * down, you should call [Publisher.shutdown] (and optionally [Publisher.awaitTermination]).
  *
+ * ### Trace context propagation
+ *
+ * The OpenTelemetry trace context is only attached to published messages if the [Publisher] was
+ * built with OpenTelemetry tracing enabled. The OpenTelemetry Java agent does _not_ do this for
+ * you, so if you want subscribers (such as
+ * [PubSubQueue][no.liflig.messaging.gcp.queue.PubSubQueue]) to continue your trace, build the
+ * publisher like this:
+ * ```
+ * Publisher.newBuilder(topicName)
+ *     .setEnableOpenTelemetryTracing(true)
+ *     .setOpenTelemetry(GlobalOpenTelemetry.get())
+ *     .build()
+ * ```
+ *
  * The class provides multiple constructors:
  * - The primary constructor uses a provided
  *   [TopicObserver][no.liflig.messaging.topic.TopicObserver]

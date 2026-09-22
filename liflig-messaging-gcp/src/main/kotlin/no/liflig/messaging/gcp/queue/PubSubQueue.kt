@@ -34,7 +34,27 @@ import no.liflig.messaging.queue.QueueObserver
  * - an optional [Publisher], used for [send]. Many consumers only poll their queue, so the
  *   publisher may be omitted; calling [send] without one throws [IllegalStateException]. When
  *   provided, the publisher should target the topic that `subscriptionName` is subscribed to, so
- *   that sent messages come back around on [poll].
+ *   that sent messages come back around on [poll]. This is not verified.
+ *
+ * Note that [send] does _not_ behave like sending to an SQS queue: it publishes to the topic, so
+ * the message is delivered to _every_ subscription on that topic, not just the one this queue polls
+ * from. If other subscriptions exist on the topic, they will receive the message too. Prefer
+ * [PubSubTopic][no.liflig.messaging.gcp.topic.PubSubTopic] when publishing to a topic with multiple
+ * subscribers, to make the fan-out explicit.
+ *
+ * ### Trace context propagation
+ *
+ * Messages polled from the subscription get their [Message.context] populated from the W3C trace
+ * context attributes (`googclient_traceparent` / `googclient_tracestate`) that the Pub/Sub client
+ * library adds on publish. The client library only adds these if the publisher was built with
+ * OpenTelemetry tracing enabled. The OpenTelemetry Java agent does _not_ do this for you, so for
+ * trace context to propagate from the publishing service, build its [Publisher] like this:
+ * ```
+ * Publisher.newBuilder(topicName)
+ *     .setEnableOpenTelemetryTracing(true)
+ *     .setOpenTelemetry(GlobalOpenTelemetry.get())
+ *     .build()
+ * ```
  *
  * You own the lifecycle of the [SubscriberStub] and [Publisher]: close/shut them down when your
  * application stops.
@@ -70,7 +90,9 @@ public class PubSubQueue(
       observer =
           DefaultQueueObserver(
               queueName = name,
-              queueUrl = subscriptionName,
+              // The observer only uses this in logs for sent messages. Those are published to the
+              // publisher's topic, not to the subscription, so we log the topic name.
+              queueUrl = publisher?.topicNameString ?: subscriptionName,
               logger,
               loggingMode,
           ),
@@ -78,9 +100,12 @@ public class PubSubQueue(
   )
 
   /**
-   * Publishes a message to the topic backing this queue's subscription.
+   * Publishes a message to the topic backing this queue's subscription. The message is delivered to
+   * every subscription on that topic, not just this queue's (see the class documentation).
    *
-   * @param delay Ignored. Pub/Sub does not support delaying delivery of individual messages.
+   * @param delay Not supported: Pub/Sub cannot delay delivery of individual messages. Must be null
+   *   or zero.
+   * @throws UnsupportedOperationException If a non-zero [delay] is given.
    * @throws IllegalStateException If this queue was constructed without a [Publisher].
    */
   override fun send(
@@ -89,6 +114,13 @@ public class PubSubQueue(
       systemAttributes: Map<String, String>,
       delay: Duration?,
   ): MessageId {
+    if (delay != null && !delay.isZero) {
+      throw UnsupportedOperationException(
+          "PubSubQueue does not support delayed sending, since Pub/Sub cannot delay delivery of " +
+              "individual messages (got delay: ${delay})",
+      )
+    }
+
     val publisher =
         this.publisher
             ?: throw IllegalStateException(
