@@ -9,6 +9,9 @@ import com.google.pubsub.v1.AcknowledgeRequest
 import com.google.pubsub.v1.PubsubMessage
 import com.google.pubsub.v1.PullRequest
 import com.google.pubsub.v1.ReceivedMessage
+import io.opentelemetry.api.GlobalOpenTelemetry
+import io.opentelemetry.context.Context
+import io.opentelemetry.context.propagation.TextMapGetter
 import java.time.Duration
 import no.liflig.logging.getLogger
 import no.liflig.messaging.Message
@@ -162,6 +165,19 @@ public class PubSubQueue(
      */
     internal const val ORDERING_KEY_ATTRIBUTE: String = "OrderingKey"
 
+    /**
+     * Prefix used by Pub/Sub client libraries for attributes carrying internal tracing metadata
+     * (see [PubsubMessage.extractContext]). These are stripped from [Message.customAttributes], the
+     * same way SQS's system attributes never end up there.
+     */
+    internal const val GOOGCLIENT_ATTRIBUTE_PREFIX: String = "googclient_"
+
+    /** Attribute holding the W3C `traceparent` value, when publish-side tracing is enabled. */
+    internal const val TRACEPARENT_ATTRIBUTE: String = "googclient_traceparent"
+
+    /** Attribute holding the W3C `tracestate` value, when publish-side tracing is enabled. */
+    internal const val TRACESTATE_ATTRIBUTE: String = "googclient_tracestate"
+
     internal val logger = getLogger()
   }
 }
@@ -196,7 +212,42 @@ internal fun pubsubMessageToInternalFormat(
       // acknowledge the message or change its ack deadline.
       receiptHandle = receivedMessage.ackId,
       systemAttributes = systemAttributes,
-      customAttributes = pubsubMessage.attributesMap,
+      customAttributes =
+          pubsubMessage.attributesMap.filterKeys {
+            !it.startsWith(PubSubQueue.GOOGCLIENT_ATTRIBUTE_PREFIX)
+          },
       source = source,
+      context = pubsubMessage.extractContext(),
   )
+}
+
+/**
+ * Attempts to pull W3C trace context from the `googclient_traceparent`/`googclient_tracestate`
+ * attributes that Pub/Sub client libraries set on publish when tracing is enabled (see
+ * https://cloud.google.com/pubsub/docs/open-telemetry-tracing).
+ *
+ * As with SQS's equivalent (`SQSMessage.extractContext` in `liflig-messaging-awssdk`), this uses
+ * whatever [io.opentelemetry.context.propagation.TextMapPropagator] is registered in the global
+ * OpenTelemetry instance, and returns the bare root context if none is registered (e.g. no OTel
+ * Java agent attached to the JVM). Returns null if no trace context attribute is present, leaving
+ * it up to the caller to decide whether to start a new trace.
+ */
+internal fun PubsubMessage.extractContext(): Context? {
+  val traceparent = this.attributesMap[PubSubQueue.TRACEPARENT_ATTRIBUTE] ?: return null
+
+  val propagator = GlobalOpenTelemetry.getOrNoop().propagators.textMapPropagator
+
+  val carrier = buildMap {
+    put("traceparent", traceparent)
+    attributesMap[PubSubQueue.TRACESTATE_ATTRIBUTE]?.let { put("tracestate", it) }
+  }
+
+  val getter =
+      object : TextMapGetter<Map<String, String>> {
+        override fun keys(carrier: Map<String, String>): Iterable<String> = carrier.keys
+
+        override fun get(carrier: Map<String, String>?, key: String): String? = carrier?.get(key)
+      }
+
+  return propagator.extract(Context.root(), carrier, getter)
 }

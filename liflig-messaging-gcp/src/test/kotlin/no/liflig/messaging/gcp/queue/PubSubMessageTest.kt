@@ -6,6 +6,8 @@ import com.google.pubsub.v1.PubsubMessage
 import com.google.pubsub.v1.ReceivedMessage
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.maps.shouldNotContainKey
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 
@@ -74,6 +76,43 @@ internal class PubSubMessageTest {
     message.body shouldBe """{"orderId":"123"}"""
     message.receiptHandle shouldBe "ack-id-1"
     message.source shouldBe "test-subscription"
+  }
+
+  @Test
+  fun `excludes googclient_ prefixed attributes from customAttributes`() {
+    val received =
+        buildReceivedMessage(
+            customAttributes =
+                mapOf(
+                    "eventType" to "OrderCreated",
+                    "googclient_traceparent" to "00-trace-id-01",
+                ),
+        )
+
+    val message = pubsubMessageToInternalFormat(received, source = "test")
+
+    message.customAttributes shouldContainExactly mapOf("eventType" to "OrderCreated")
+  }
+
+  @Test
+  fun `context is null when no trace context attribute is present`() {
+    val received = buildReceivedMessage()
+
+    val message = pubsubMessageToInternalFormat(received, source = "test")
+
+    message.context.shouldBeNull()
+  }
+
+  @Test
+  fun `context is extracted when traceparent attribute is present`() {
+    val received =
+        buildReceivedMessage(
+            customAttributes = mapOf("googclient_traceparent" to "00-trace-id-01"),
+        )
+
+    val message = pubsubMessageToInternalFormat(received, source = "test")
+
+    message.context.shouldNotBeNull()
   }
 
   private fun buildReceivedMessage(
