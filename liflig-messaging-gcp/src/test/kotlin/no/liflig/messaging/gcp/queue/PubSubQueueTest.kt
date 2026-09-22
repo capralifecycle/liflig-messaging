@@ -54,6 +54,20 @@ internal class PubSubQueueTest {
     message.customAttributes shouldContain ("eventType" to "OrderCreated")
   }
 
+  @Test
+  fun `customAttributes takes precedence over systemAttributes on key collision`() {
+    val testMessage = """{"orderId":"456","status":"CREATED"}"""
+
+    queue.send(
+        testMessage,
+        customAttributes = mapOf("eventType" to "fromCustom"),
+        systemAttributes = mapOf("eventType" to "fromSystem"),
+    )
+
+    val message = pollSingleMessage()
+    message.customAttributes shouldContain ("eventType" to "fromCustom")
+  }
+
   /** Polls the queue, retrying until a single message is received (or the timeout is hit). */
   private fun pollSingleMessage(): Message {
     var messages: List<Message> = emptyList()
