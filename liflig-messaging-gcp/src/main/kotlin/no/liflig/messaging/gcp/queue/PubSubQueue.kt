@@ -2,6 +2,8 @@
 
 package no.liflig.messaging.gcp.queue
 
+import com.google.api.gax.grpc.GrpcCallContext
+import com.google.api.gax.rpc.DeadlineExceededException
 import com.google.cloud.pubsub.v1.Publisher
 import com.google.cloud.pubsub.v1.stub.SubscriberStub
 import com.google.protobuf.ByteString
@@ -13,6 +15,7 @@ import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
 import io.opentelemetry.context.Context
 import io.opentelemetry.context.propagation.TextMapGetter
 import java.time.Duration
+import java.util.concurrent.ExecutionException
 import no.liflig.logging.getLogger
 import no.liflig.messaging.Message
 import no.liflig.messaging.MessageId
@@ -147,6 +150,13 @@ public class PubSubQueue(
     return MessageId(messageId)
   }
 
+  /**
+   * Pulls up to [MAX_MESSAGES_PER_PULL] messages from the subscription. If none are available, the
+   * pull waits for up to [POLL_TIMEOUT] (like SQS's 20-second long polling), then returns an empty
+   * list.
+   *
+   * @throws InterruptedException If the polling thread is interrupted while waiting for messages.
+   */
   override fun poll(): List<Message> {
     val pullRequest =
         PullRequest.newBuilder()
@@ -154,7 +164,36 @@ public class PubSubQueue(
             .setMaxMessages(MAX_MESSAGES_PER_PULL)
             .build()
 
-    return subscriber.pullCallable().call(pullRequest).receivedMessagesList.map { receivedMessage ->
+    val future =
+        subscriber
+            .pullCallable()
+            .futureCall(
+                pullRequest,
+                GrpcCallContext.createDefault().withTimeoutDuration(POLL_TIMEOUT),
+            )
+
+    val response =
+        try {
+          // We use futureCall + get instead of pullCallable().call(), since call() waits
+          // uninterruptibly. This way, MessagePoller.close() can stop a poller that's waiting for
+          // messages.
+          future.get()
+        } catch (e: InterruptedException) {
+          future.cancel(true)
+          Thread.currentThread().interrupt()
+          throw e
+        } catch (e: ExecutionException) {
+          when (val cause = e.cause) {
+            // If no messages arrive before the pull's deadline, Pub/Sub may respond with
+            // DEADLINE_EXCEEDED instead of an empty response. That just means there were no
+            // messages.
+            is DeadlineExceededException -> return emptyList()
+            null -> throw e
+            else -> throw cause
+          }
+        }
+
+    return response.receivedMessagesList.map { receivedMessage ->
       pubsubMessageToInternalFormat(receivedMessage, source = subscriptionName)
     }
   }
@@ -178,6 +217,13 @@ public class PubSubQueue(
   internal companion object {
     /** The maximum number of messages to receive in a single pull request. */
     internal const val MAX_MESSAGES_PER_PULL: Int = 10
+
+    /**
+     * How long a pull waits for messages before returning empty. Matches the 20 seconds used by
+     * `SqsQueue` for long polling, which [MessagePoller][no.liflig.messaging.MessagePoller] is
+     * designed around. Without this, the Pub/Sub client's default deadline of 60 seconds applies.
+     */
+    internal val POLL_TIMEOUT: Duration = Duration.ofSeconds(20)
 
     /**
      * Key used in [Message.systemAttributes] to hold the Pub/Sub delivery-attempt count (see
