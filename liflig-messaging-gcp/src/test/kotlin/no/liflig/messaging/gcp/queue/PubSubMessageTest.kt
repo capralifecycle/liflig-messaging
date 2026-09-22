@@ -9,6 +9,7 @@ import io.kotest.matchers.maps.shouldNotContainKey
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.opentelemetry.api.trace.Span
 import org.junit.jupiter.api.Test
 
 internal class PubSubMessageTest {
@@ -107,12 +108,23 @@ internal class PubSubMessageTest {
   fun `context is extracted when traceparent attribute is present`() {
     val received =
         buildReceivedMessage(
-            customAttributes = mapOf("googclient_traceparent" to "00-trace-id-01"),
+            customAttributes =
+                mapOf(
+                    "googclient_traceparent" to
+                        "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+                    "googclient_tracestate" to "vendor=value",
+                ),
         )
 
     val message = pubsubMessageToInternalFormat(received, source = "test")
 
-    message.context.shouldNotBeNull()
+    val spanContext = Span.fromContext(message.context.shouldNotBeNull()).spanContext
+    spanContext.isValid shouldBe true
+    spanContext.isRemote shouldBe true
+    spanContext.isSampled shouldBe true
+    spanContext.traceId shouldBe "4bf92f3577b34da6a3ce929d0e0e4736"
+    spanContext.spanId shouldBe "00f067aa0ba902b7"
+    spanContext.traceState.get("vendor") shouldBe "value"
   }
 
   private fun buildReceivedMessage(

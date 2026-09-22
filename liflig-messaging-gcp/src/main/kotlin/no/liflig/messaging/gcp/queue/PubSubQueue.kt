@@ -9,7 +9,7 @@ import com.google.pubsub.v1.AcknowledgeRequest
 import com.google.pubsub.v1.PubsubMessage
 import com.google.pubsub.v1.PullRequest
 import com.google.pubsub.v1.ReceivedMessage
-import io.opentelemetry.api.GlobalOpenTelemetry
+import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
 import io.opentelemetry.context.Context
 import io.opentelemetry.context.propagation.TextMapGetter
 import java.time.Duration
@@ -258,16 +258,17 @@ internal fun pubsubMessageToInternalFormat(
  * attributes that Pub/Sub client libraries set on publish when tracing is enabled (see
  * https://cloud.google.com/pubsub/docs/open-telemetry-tracing).
  *
- * As with SQS's equivalent (`SQSMessage.extractContext` in `liflig-messaging-awssdk`), this uses
- * whatever [io.opentelemetry.context.propagation.TextMapPropagator] is registered in the global
- * OpenTelemetry instance, and returns the bare root context if none is registered (e.g. no OTel
- * Java agent attached to the JVM). Returns null if no trace context attribute is present, leaving
- * it up to the caller to decide whether to start a new trace.
+ * Unlike SQS's equivalent (`SQSMessage.extractContext` in `liflig-messaging-awssdk`), this does not
+ * use the propagator registered in the global OpenTelemetry instance. The Pub/Sub client library
+ * always injects these attributes with [W3CTraceContextPropagator], regardless of the configured
+ * propagators, so we extract with the same propagator. Otherwise, extraction would silently fail
+ * when the global propagator is not W3C (e.g. X-Ray only).
+ *
+ * Returns null if no trace context attribute is present, leaving it up to the caller to decide
+ * whether to start a new trace.
  */
 internal fun PubsubMessage.extractContext(): Context? {
   val traceparent = this.attributesMap[PubSubQueue.TRACEPARENT_ATTRIBUTE] ?: return null
-
-  val propagator = GlobalOpenTelemetry.getOrNoop().propagators.textMapPropagator
 
   val carrier = buildMap {
     put("traceparent", traceparent)
@@ -281,5 +282,5 @@ internal fun PubsubMessage.extractContext(): Context? {
         override fun get(carrier: Map<String, String>?, key: String): String? = carrier?.get(key)
       }
 
-  return propagator.extract(Context.root(), carrier, getter)
+  return W3CTraceContextPropagator.getInstance().extract(Context.root(), carrier, getter)
 }
