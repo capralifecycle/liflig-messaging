@@ -13,11 +13,14 @@ import com.google.cloud.pubsub.v1.TopicAdminSettings
 import com.google.cloud.pubsub.v1.stub.GrpcSubscriberStub
 import com.google.cloud.pubsub.v1.stub.SubscriberStub
 import com.google.cloud.pubsub.v1.stub.SubscriberStubSettings
+import com.google.protobuf.Timestamp
 import com.google.pubsub.v1.PushConfig
+import com.google.pubsub.v1.SeekRequest
 import com.google.pubsub.v1.SubscriptionName
 import com.google.pubsub.v1.TopicName
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
+import java.time.Instant
 import org.testcontainers.containers.PubSubEmulatorContainer
 import org.testcontainers.utility.DockerImageName
 
@@ -77,6 +80,31 @@ internal class PubSubEmulator(container: PubSubEmulatorContainer) : AutoCloseabl
           )
         }
     return subscriptionName
+  }
+
+  /**
+   * Pub/Sub has no "purge" operation like SQS. Instead, we seek the subscription to the current
+   * time, which marks all messages published before now as acknowledged (including ones currently
+   * leased, or waiting for redelivery after a backoff).
+   */
+  fun purgeSubscription(subscriptionName: SubscriptionName) {
+    val now = Instant.now()
+    SubscriptionAdminClient.create(
+            SubscriptionAdminSettings.newBuilder()
+                .setTransportChannelProvider(channelProvider)
+                .setCredentialsProvider(credentialsProvider)
+                .build(),
+        )
+        .use {
+          it.seek(
+              SeekRequest.newBuilder()
+                  .setSubscription(subscriptionName.toString())
+                  .setTime(
+                      Timestamp.newBuilder().setSeconds(now.epochSecond).setNanos(now.nano).build(),
+                  )
+                  .build(),
+          )
+        }
   }
 
   fun createPublisher(topicName: TopicName): Publisher =

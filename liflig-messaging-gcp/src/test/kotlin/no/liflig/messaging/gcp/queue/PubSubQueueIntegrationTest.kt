@@ -2,6 +2,7 @@ package no.liflig.messaging.gcp.queue
 
 import com.google.cloud.pubsub.v1.Publisher
 import com.google.cloud.pubsub.v1.stub.SubscriberStub
+import com.google.pubsub.v1.SubscriptionName
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -14,8 +15,8 @@ import no.liflig.messaging.gcp.testutils.TestMessageProcessor
 import no.liflig.messaging.gcp.testutils.createPubSubEmulatorContainer
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.testcontainers.containers.PubSubEmulatorContainer
@@ -26,6 +27,7 @@ internal class PubSubQueueIntegrationTest {
   lateinit var emulator: PubSubEmulator
   lateinit var publisher: Publisher
   lateinit var subscriber: SubscriberStub
+  lateinit var subscription: SubscriptionName
   lateinit var queue: PubSubQueue
 
   val messageProcessor = TestMessageProcessor()
@@ -38,7 +40,7 @@ internal class PubSubQueueIntegrationTest {
     container.start()
     emulator = PubSubEmulator(container)
     val topic = emulator.createTopic("test-queue-topic")
-    val subscription = emulator.createSubscription("test-queue-subscription", topic)
+    subscription = emulator.createSubscription("test-queue-subscription", topic)
     publisher = emulator.createPublisher(topic)
     subscriber = emulator.createSubscriberStub()
     queue = PubSubQueue(subscriber, subscription.toString(), publisher)
@@ -47,14 +49,20 @@ internal class PubSubQueueIntegrationTest {
     messagePoller.start()
   }
 
-  @AfterEach
+  /**
+   * Messages that fail processing are retried after a backoff, so without purging, they could be
+   * redelivered during a later test and mess up its counts.
+   */
+  @BeforeEach
   fun reset() {
+    emulator.purgeSubscription(subscription)
     messageProcessor.reset()
     observer.reset()
   }
 
   @AfterAll
   fun cleanup() {
+    messagePoller.close()
     publisher.shutdown()
     subscriber.close()
     emulator.close()
@@ -65,7 +73,7 @@ internal class PubSubQueueIntegrationTest {
   fun `MessagePoller successfully polls message from Pub-Sub`() {
     queue.send(TestMessage.SUCCESS)
 
-    await().until { messageProcessor.processedCount >= 1 }
+    await().until { messageProcessor.successCount == 1 }
     observer.observedPollException().shouldBeNull()
     observer.observedMessageException().shouldBeNull()
   }
@@ -74,7 +82,7 @@ internal class PubSubQueueIntegrationTest {
   fun `MessagePoller handles failed message from Pub-Sub`() {
     queue.send(TestMessage.FAILURE)
 
-    await().until { messageProcessor.processedCount >= 1 }
+    await().until { messageProcessor.failureCount == 1 }
     observer.observedPollException().shouldBeNull()
     observer.observedMessageException().shouldBeNull()
   }
@@ -83,7 +91,7 @@ internal class PubSubQueueIntegrationTest {
   fun `MessagePoller handles exception when processing message from Pub-Sub`() {
     queue.send(TestMessage.EXCEPTION)
 
-    await().until { messageProcessor.processedCount >= 1 }
+    await().until { messageProcessor.exceptionCount == 1 }
     observer.observedPollException().shouldBeNull()
     observer.observedMessageException().shouldNotBeNull()
   }
@@ -98,6 +106,7 @@ internal class PubSubQueueIntegrationTest {
     queue.send(TestMessage.EXCEPTION)
 
     await().until { messageProcessor.processedCount >= 6 }
+    messageProcessor.processedCount shouldBe 6
     messageProcessor.successCount shouldBe 2
     messageProcessor.failureCount shouldBe 2
     messageProcessor.exceptionCount shouldBe 2

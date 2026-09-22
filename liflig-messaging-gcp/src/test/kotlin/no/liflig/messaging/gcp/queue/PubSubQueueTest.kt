@@ -68,11 +68,15 @@ internal class PubSubQueueTest {
     message.customAttributes shouldContain ("eventType" to "fromCustom")
   }
 
-  /** Polls the queue, retrying until a single message is received (or the timeout is hit). */
+  /**
+   * Polls the queue, retrying until a single message is received (or the timeout is hit). Polled
+   * messages are acknowledged, so they are not redelivered to later tests once the subscription's
+   * ack deadline expires.
+   */
   private fun pollSingleMessage(): Message {
     var messages: List<Message> = emptyList()
     await().atMost(Duration.ofSeconds(10)).until {
-      messages = queue.poll()
+      messages = queue.poll().onEach { queue.delete(it) }
       messages.size == 1
     }
     return messages.single()
