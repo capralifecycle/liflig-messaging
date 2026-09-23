@@ -29,6 +29,16 @@ internal class PubSubQueueSendTest {
   }
 
   @Test
+  fun `send throws when given system attributes`() {
+    val queue =
+        PubSubQueue(subscriber = mockk<SubscriberStub>(), subscriptionName = "test-subscription")
+
+    shouldThrow<UnsupportedOperationException> {
+      queue.send("test-message", systemAttributes = mapOf("AWSTraceHeader" to "trace"))
+    }
+  }
+
+  @Test
   fun `send accepts a zero delay`() {
     val queue =
         PubSubQueue(subscriber = mockk<SubscriberStub>(), subscriptionName = "test-subscription")

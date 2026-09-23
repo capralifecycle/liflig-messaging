@@ -106,9 +106,14 @@ public class PubSubQueue(
    * Publishes a message to the topic backing this queue's subscription. The message is delivered to
    * every subscription on that topic, not just this queue's (see the class documentation).
    *
+   * @param customAttributes Sent as Pub/Sub message attributes. These are received in
+   *   [Message.customAttributes] when polled.
+   * @param systemAttributes Not supported: Pub/Sub has no system attributes that can be set when
+   *   publishing (unlike SQS's `AWSTraceHeader`). Must be empty.
    * @param delay Not supported: Pub/Sub cannot delay delivery of individual messages. Must be null
    *   or zero.
-   * @throws UnsupportedOperationException If a non-zero [delay] is given.
+   * @throws UnsupportedOperationException If [systemAttributes] is non-empty, or a non-zero [delay]
+   *   is given.
    * @throws IllegalStateException If this queue was constructed without a [Publisher].
    */
   override fun send(
@@ -124,6 +129,14 @@ public class PubSubQueue(
       )
     }
 
+    if (systemAttributes.isNotEmpty()) {
+      throw UnsupportedOperationException(
+          "PubSubQueue does not support sending system attributes, since Pub/Sub has no system " +
+              "attributes that can be set when publishing (got keys: ${systemAttributes.keys}). " +
+              "Use customAttributes instead",
+      )
+    }
+
     val publisher =
         this.publisher
             ?: throw IllegalStateException(
@@ -136,9 +149,7 @@ public class PubSubQueue(
           val pubsubMessage =
               PubsubMessage.newBuilder()
                   .setData(ByteString.copyFromUtf8(messageBody))
-                  // Pub/Sub has a single string->string attribute map, with no separate "system"
-                  // attributes. We merge both, letting custom attributes win on key collisions.
-                  .putAllAttributes(systemAttributes + customAttributes)
+                  .putAllAttributes(customAttributes)
                   .build()
 
           publisher.publish(pubsubMessage).get()
