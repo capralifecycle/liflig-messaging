@@ -225,7 +225,7 @@ public class PubSubQueue(
     backoffService.increaseVisibilityTimeout(message, subscriptionName)
   }
 
-  internal companion object {
+  public companion object {
     /** The maximum number of messages to receive in a single pull request. */
     internal const val MAX_MESSAGES_PER_PULL: Int = 10
 
@@ -241,18 +241,18 @@ public class PubSubQueue(
      * [ReceivedMessage.getDeliveryAttempt]). Only populated when the subscription has a dead-letter
      * policy.
      */
-    internal const val DELIVERY_ATTEMPT_ATTRIBUTE: String = "DeliveryAttempt"
+    public const val DELIVERY_ATTEMPT_ATTRIBUTE: String = "DeliveryAttempt"
 
     /**
      * Key used in [Message.systemAttributes] to hold the message's Pub/Sub publish time, in Unix
-     * epoch milliseconds.
+     * epoch milliseconds. [Message.getSentTimestamp] reads this.
      */
-    internal const val PUBLISH_TIME_ATTRIBUTE: String = "PublishTime"
+    public const val PUBLISH_TIME_ATTRIBUTE: String = "PublishTime"
 
     /**
      * Key used in [Message.systemAttributes] to hold the message's Pub/Sub ordering key, if set.
      */
-    internal const val ORDERING_KEY_ATTRIBUTE: String = "OrderingKey"
+    public const val ORDERING_KEY_ATTRIBUTE: String = "OrderingKey"
 
     /**
      * Prefix used by Pub/Sub client libraries for attributes carrying internal tracing metadata

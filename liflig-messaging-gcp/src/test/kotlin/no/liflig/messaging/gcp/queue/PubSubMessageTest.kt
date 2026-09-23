@@ -10,6 +10,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.opentelemetry.api.trace.Span
+import java.time.Instant
 import org.junit.jupiter.api.Test
 
 internal class PubSubMessageTest {
@@ -24,6 +25,7 @@ internal class PubSubMessageTest {
     val message = pubsubMessageToInternalFormat(received, source = "test")
 
     message.systemAttributes[PubSubQueue.PUBLISH_TIME_ATTRIBUTE] shouldBe "1700000000500"
+    message.getSentTimestamp() shouldBe Instant.ofEpochMilli(1_700_000_000_500)
   }
 
   @Test
