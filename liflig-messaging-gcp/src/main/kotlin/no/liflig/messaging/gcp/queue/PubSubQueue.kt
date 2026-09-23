@@ -45,6 +45,20 @@ import no.liflig.messaging.queue.QueueObserver
  * [PubSubTopic][no.liflig.messaging.gcp.topic.PubSubTopic] when publishing to a topic with multiple
  * subscribers, to make the fan-out explicit.
  *
+ * ### Ack deadline
+ *
+ * When a message is polled, it's leased to this consumer for the subscription's _ack deadline_ (10
+ * seconds by default), Pub/Sub's equivalent of SQS's visibility timeout. If the message is not
+ * acknowledged ([delete]) or retried ([retry]) before the deadline, Pub/Sub redelivers it.
+ *
+ * Note that the lease starts when the message is _pulled_, not when processing of it starts, and
+ * this class does not extend it during processing. [poll] pulls up to 10 messages at a time, which
+ * [MessagePoller][no.liflig.messaging.MessagePoller] processes one after another. So if processing
+ * the whole batch takes longer than the ack deadline, the remaining messages are redelivered
+ * (possibly to another poller) while still waiting to be processed, and end up processed twice. You
+ * should therefore configure the subscription's ack deadline to cover the worst-case processing
+ * time of 10 messages (Pub/Sub allows up to 600 seconds).
+ *
  * ### Trace context propagation
  *
  * Messages polled from the subscription get their [Message.context] populated from the W3C trace
