@@ -15,7 +15,6 @@ import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
 import io.opentelemetry.context.Context
 import io.opentelemetry.context.propagation.TextMapGetter
 import java.time.Duration
-import java.util.concurrent.ExecutionException
 import no.liflig.logging.getLogger
 import no.liflig.messaging.Message
 import no.liflig.messaging.MessageId
@@ -23,6 +22,7 @@ import no.liflig.messaging.MessageLoggingMode
 import no.liflig.messaging.backoff.BackoffConfig
 import no.liflig.messaging.backoff.BackoffService
 import no.liflig.messaging.gcp.backoff.PubSubBackoffService
+import no.liflig.messaging.gcp.utils.getUnwrapped
 import no.liflig.messaging.queue.DefaultQueueObserver
 import no.liflig.messaging.queue.Queue
 import no.liflig.messaging.queue.QueueObserver
@@ -166,7 +166,7 @@ public class PubSubQueue(
                   .putAllAttributes(customAttributes)
                   .build()
 
-          publisher.publish(pubsubMessage).get()
+          publisher.publish(pubsubMessage).getUnwrapped()
         } catch (e: Exception) {
           observer.onSendException(e, messageBody)
         }
@@ -202,20 +202,14 @@ public class PubSubQueue(
           // We use futureCall + get instead of pullCallable().call(), since call() waits
           // uninterruptibly. This way, MessagePoller.close() can stop a poller that's waiting for
           // messages.
-          future.get()
+          future.getUnwrapped()
+        } catch (e: DeadlineExceededException) {
+          // If no messages arrive before the pull's deadline, Pub/Sub may respond with
+          // DEADLINE_EXCEEDED instead of an empty response. That just means there were no messages.
+          return emptyList()
         } catch (e: InterruptedException) {
           future.cancel(true)
-          Thread.currentThread().interrupt()
           throw e
-        } catch (e: ExecutionException) {
-          when (val cause = e.cause) {
-            // If no messages arrive before the pull's deadline, Pub/Sub may respond with
-            // DEADLINE_EXCEEDED instead of an empty response. That just means there were no
-            // messages.
-            is DeadlineExceededException -> return emptyList()
-            null -> throw e
-            else -> throw cause
-          }
         }
 
     return response.receivedMessagesList.map { receivedMessage ->

@@ -8,6 +8,7 @@ import com.google.pubsub.v1.PubsubMessage
 import no.liflig.logging.getLogger
 import no.liflig.messaging.MessageId
 import no.liflig.messaging.MessageLoggingMode
+import no.liflig.messaging.gcp.utils.getUnwrapped
 import no.liflig.messaging.topic.DefaultTopicObserver
 import no.liflig.messaging.topic.Topic
 import no.liflig.messaging.topic.TopicObserver
@@ -66,7 +67,7 @@ public class PubSubTopic(
               PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8(message)).build()
           // publish returns an ApiFuture that completes once the message is sent. We block on it to
           // get the assigned message ID (and to surface any publishing error synchronously).
-          publisher.publish(pubsubMessage).get()
+          publisher.publish(pubsubMessage).getUnwrapped()
         } catch (e: Exception) {
           observer.onPublishException(e, message)
         }
