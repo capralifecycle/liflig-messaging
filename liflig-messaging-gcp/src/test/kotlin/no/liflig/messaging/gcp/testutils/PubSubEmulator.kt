@@ -28,7 +28,7 @@ internal const val PROJECT_ID = "test-project"
 
 internal fun createPubSubEmulatorContainer(): PubSubEmulatorContainer =
     PubSubEmulatorContainer(
-            DockerImageName.parse("gcr.io/google.com/cloudsdktool/cloud-sdk:emulators"),
+            DockerImageName.parse("gcr.io/google.com/cloudsdktool/cloud-sdk:571.0.0-emulators"),
         )
         .withReuse(true)
 
