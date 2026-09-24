@@ -25,8 +25,8 @@ import no.liflig.messaging.queue.Queue
  * application, continuously polling messages.
  *
  * @param concurrentPollers Number of threads to spawn. Each thread continuously polls the queue (in
- *   the SQS implementation, message polling waits for up to 20 seconds if there are no available
- *   messages, so continuously polling is not a concern).
+ *   the SQS and Pub/Sub implementations, message polling waits for up to 20 seconds if there are no
+ *   available messages, so continuously polling is not a concern).
  * @param name Used as a prefix for thread names, and if using [DefaultMessagePollerObserver], this
  *   is included in the logs. If you're running multiple MessagePollers in your application, you
  *   should provide a more specific name here, to make debugging easier.
@@ -238,8 +238,8 @@ public class MessagePollerBuilder {
   public var queueName: String = ""
 
   /**
-   * Number of threads to spawn. Each thread continuously polls the queue (in the SQS
-   * implementation, message polling waits for up to 20 seconds if there are no available messages,
+   * Number of threads to spawn. Each thread continuously polls the queue (in the SQS and Pub/Sub
+   * implementations, message polling waits for up to 20 seconds if there are no available messages,
    * so continuously polling is not a concern).
    */
   public var concurrentPollers: Int = 1

@@ -10,8 +10,9 @@ import no.liflig.messaging.MessageId
 /**
  * A message queue that you can send messages to or poll messages from.
  *
- * This library provides 2 implementations:
+ * This library provides 3 implementations:
  * - `SqsQueue` from the `liflig-messaging-awssdk` module, for AWS SQS (Simple Queue Service)
+ * - `PubSubQueue` from the `liflig-messaging-gcp` module, for Google Cloud Pub/Sub
  * - [MockQueue] for tests
  */
 public interface Queue {
@@ -23,7 +24,8 @@ public interface Queue {
    *   In the SQS implementation, the maximum delay is 15 minutes. It uses the
    *   [`DelaySeconds` request parameter](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SendMessage.html#API_SendMessage_RequestParameters).
    *
-   *   This parameter is ignored by [MockQueue].
+   *   This parameter is ignored by [MockQueue]. `PubSubQueue` does not support delays, and throws
+   *   if a non-zero delay is given.
    *
    * @return The ID of the sent message. In the SQS implementation, this uses the
    *   [`MessageId` returned by AWS in the response](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SendMessage.html#API_SendMessage_ResponseElements).
@@ -40,7 +42,8 @@ public interface Queue {
    * Polls the queue for available messages.
    *
    * The implementation in `SqsQueue.poll` (from `liflig-messaging-awssdk`) polls messages for up to
-   * 20 seconds, or until it's received 10 messages, whichever comes first.
+   * 20 seconds, or until it's received 10 messages, whichever comes first. `PubSubQueue.poll` (from
+   * `liflig-messaging-gcp`) behaves the same way.
    */
   public fun poll(): List<Message>
 
@@ -65,7 +68,8 @@ public interface Queue {
    *
    * The implementation in `SqsQueue.retry` (from `liflig-messaging-awssdk`) increases the message's
    * [visibility timeout](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html)
-   * to do exponential backoff.
+   * to do exponential backoff. `PubSubQueue.retry` (from `liflig-messaging-gcp`) does the same by
+   * extending the message's ack deadline.
    */
   public fun retry(message: Message)
 

@@ -22,6 +22,11 @@ public data class Message(
      *
      * See
      * [AWS docs](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-message-metadata.html).
+     *
+     * For messages polled from Google Cloud Pub/Sub, `PubSubQueue` (in `liflig-messaging-gcp`)
+     * populates these from the message's metadata: `PublishTime`, `DeliveryAttempt` and
+     * `OrderingKey` (see the constants on `PubSubQueue`). Pub/Sub has no system attributes that can
+     * be set when sending.
      */
     val systemAttributes: Map<String, String>,
     /**
@@ -31,11 +36,16 @@ public data class Message(
      *
      * See
      * [AWS docs](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-message-metadata.html).
+     *
+     * In Google Cloud Pub/Sub, these are the message's attributes.
      */
     val customAttributes: Map<String, String>,
     /**
      * When we poll a message from SQS, we get a "receipt handle" that we can use to change the
      * message's visibility timeout (which we use for exponential backoff).
+     *
+     * For messages polled from Google Cloud Pub/Sub, this is the message's "ack ID", which plays
+     * the same role (used to acknowledge the message, or change its ack deadline).
      */
     val receiptHandle: String? = null,
     /**
@@ -46,6 +56,8 @@ public data class Message(
      * - `handleLambdaSqsEvent` (in `liflig-messaging-sqs-lambda`) uses the queue ARN (Amazon
      *   Resource Name) for this field, since that's what Lambda functions receive in their SQS
      *   event (through the `eventSourceArn` field)
+     * - `PubSubQueue` (in `liflig-messaging-gcp`) uses the subscription name (e.g.
+     *   `projects/{project}/subscriptions/{subscription}`)
      */
     val source: String? = null,
     /**
@@ -78,6 +90,33 @@ public data class Message(
         systemAttributes["SentTimestamp"]
             ?: throw IllegalStateException(
                 "Expected to find 'SentTimestamp' in SQS message system attributes",
+            )
+
+    return Instant.ofEpochMilli(sentTimestamp.toLong())
+  }
+
+  /**
+   * Returns the time that the message was sent to the queue, for messages polled from any of the
+   * queue implementations in `liflig-messaging`. Unlike [getSqsSentTimestamp], this also works for
+   * messages from Google Cloud Pub/Sub. It reads the first of these [systemAttributes] present:
+   * - `SentTimestamp`: set by AWS SQS (see [getSqsSentTimestamp]), and by
+   *   [MockQueue][no.liflig.messaging.queue.MockQueue]
+   * - `PublishTime`: set by `PubSubQueue` (in `liflig-messaging-gcp`), from the time the message
+   *   was published to the Pub/Sub topic
+   *
+   * Both are in Unix epoch milliseconds.
+   *
+   * @throws IllegalStateException If neither attribute could be found in the message's
+   *   [systemAttributes].
+   * @throws java.lang.NumberFormatException If the attribute value could not be parsed as a [Long].
+   */
+  public fun getSentTimestamp(): Instant {
+    val sentTimestamp =
+        systemAttributes["SentTimestamp"]
+            ?: systemAttributes["PublishTime"]
+            ?: throw IllegalStateException(
+                "Expected to find 'SentTimestamp' (SQS) or 'PublishTime' (Pub/Sub) in message " +
+                    "system attributes",
             )
 
     return Instant.ofEpochMilli(sentTimestamp.toLong())
