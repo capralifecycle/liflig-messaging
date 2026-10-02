@@ -21,7 +21,7 @@
     <maven.deploy.skip>false</maven.deploy.skip>
 
     <!-- Google Cloud -->
-    <google-libraries-bom.version>26.83.0</google-libraries-bom.version>
+    <google-libraries-bom.version>26.88.1</google-libraries-bom.version>
 
     <!-- Test -->
     <testcontainers.version>1.21.4</testcontainers.version>
