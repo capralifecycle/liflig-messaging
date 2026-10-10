@@ -7,7 +7,7 @@
   <parent>
     <groupId>no.liflig</groupId>
     <artifactId>kotlin-parent</artifactId>
-    <version>3.20260804.034823</version>
+    <version>3.20260925.130929</version>
   </parent>
 
   <!--suppress MavenRedundantGroupId -->
@@ -56,18 +56,18 @@
     <java.version>17</java.version>
 
     <!-- Logging -->
-    <slf4j.version>2.0.18</slf4j.version>
-    <liflig-logging.version>3.20260811.051423</liflig-logging.version>
-    <opentelemetry.version>1.65.0</opentelemetry.version>
+    <slf4j.version>2.0.20</slf4j.version>
+    <liflig-logging.version>3.20260916.090939</liflig-logging.version>
+    <opentelemetry.version>1.66.0</opentelemetry.version>
 
     <!-- Serialization -->
     <kotlinx-serialization.version>1.8.0</kotlinx-serialization.version>
 
     <!-- Testing -->
     <junit.version>6.1.3</junit.version>
-    <kotest.version>6.2.4</kotest.version>
+    <kotest.version>6.2.5</kotest.version>
     <awaitility.version>4.3.0</awaitility.version>
-    <logback.version>1.6.3</logback.version>
+    <logback.version>1.6.4</logback.version>
     <logstash-logback-encoder.version>9.0</logstash-logback-encoder.version>
 
     <!-- Maven plugins -->
