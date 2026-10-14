@@ -5,6 +5,7 @@ import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import java.time.Duration
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicLong
 import no.liflig.messaging.queue.MockQueue
 import no.liflig.messaging.testutils.TestMessage
@@ -129,23 +130,36 @@ internal class MessagePollerTest {
   fun `graceful shutdown should stop at timeout`() {
     val queue = MockQueue()
 
+    /*
+     We want the following sequence to occur:
+     - Messages are sent to queue
+     - MessagePoller polls the queue
+     - Shutdown hook is called
+     - MessageProcessor processes messages until shutdown hook times out and terminates
+    */
+
+    val messagesPolled = CountDownLatch(1)
+    val shutdownHookCalled = CountDownLatch(1)
+
     MessagePoller(
             queue = queue,
             messageProcessor = { _ ->
+              messagesPolled.countDown()
+              shutdownHookCalled.await()
               Thread.sleep(100)
               ProcessingResult.Success
             },
             shutdownTimeout = Duration.ofMillis(250),
         )
         .use { messagePoller ->
+          listOf("1", "2", "3", "4", "5").forEach { queue.send(it) }
           messagePoller.start()
 
-          listOf("1", "2", "3", "4", "5").forEach { queue.send(it) }
-
-          Thread.sleep(10)
+          messagesPolled.await()
           // Invoke the shutdown hook manually. We don't test the actually test everything
           // end-to-end
           messagePoller.shutdownHook?.start()
+          shutdownHookCalled.countDown()
 
           queue.awaitProcessed(2, Duration.ofSeconds(2))
           queue.expectSent(3)

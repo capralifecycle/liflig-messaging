@@ -44,7 +44,7 @@ jobs:
           }
           echo "major-version=$major_version" >> "$GITHUB_OUTPUT"
 
-      - uses: capralifecycle/actions-lib/generate-tag@9cd5b1c981efadf9b2cbfb08719f7f3a4856ecf2 # v1.10.3
+      - uses: capralifecycle/actions-lib/generate-tag@090f14b4d0f4179c2d64e1351e479ff17689485d # v1.21.2
         id: tag
         with:
           tag-prefix: "${{ steps.prep.outputs.major-version }}"
