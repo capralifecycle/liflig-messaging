@@ -69,7 +69,12 @@ internal class PubSubQueueSendTest {
 
   @Test
   fun `send exception has the publish error as cause, not ExecutionException`() {
-    val publishError = NotFoundException(null, GrpcStatusCode.of(Status.Code.NOT_FOUND), false)
+    val publishError =
+        NotFoundException(
+            IllegalArgumentException(),
+            GrpcStatusCode.of(Status.Code.NOT_FOUND),
+            false,
+        )
     val queue = createQueueWithPublisher(ApiFutures.immediateFailedFuture(publishError))
 
     val exception = shouldThrow<MessageSendingException> { queue.send("test-message") }

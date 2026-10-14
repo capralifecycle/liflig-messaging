@@ -59,7 +59,7 @@ internal class PubSubQueuePollTest {
   fun `poll returns empty list on deadline exceeded`() {
     val exception =
         DeadlineExceededException(
-            null,
+            IllegalArgumentException(),
             GrpcStatusCode.of(Status.Code.DEADLINE_EXCEEDED),
             false,
         )
@@ -70,7 +70,12 @@ internal class PubSubQueuePollTest {
 
   @Test
   fun `poll rethrows other exceptions unwrapped`() {
-    val exception = NotFoundException(null, GrpcStatusCode.of(Status.Code.NOT_FOUND), false)
+    val exception =
+        NotFoundException(
+            IllegalArgumentException(),
+            GrpcStatusCode.of(Status.Code.NOT_FOUND),
+            false,
+        )
     val queue = createQueue(ApiFutures.immediateFailedFuture(exception))
 
     val thrown = shouldThrow<NotFoundException> { queue.poll() }

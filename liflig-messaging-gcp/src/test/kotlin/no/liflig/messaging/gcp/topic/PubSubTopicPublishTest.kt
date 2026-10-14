@@ -27,7 +27,12 @@ internal class PubSubTopicPublishTest {
 
   @Test
   fun `publish exception has the publish error as cause, not ExecutionException`() {
-    val publishError = NotFoundException(null, GrpcStatusCode.of(Status.Code.NOT_FOUND), false)
+    val publishError =
+        NotFoundException(
+            IllegalArgumentException(),
+            GrpcStatusCode.of(Status.Code.NOT_FOUND),
+            false,
+        )
     val topic = createTopic(ApiFutures.immediateFailedFuture(publishError))
 
     val exception = shouldThrow<MessagePublishingException> { topic.publish("test-message") }
