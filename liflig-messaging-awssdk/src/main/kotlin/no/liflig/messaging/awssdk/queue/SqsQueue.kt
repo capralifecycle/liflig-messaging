@@ -35,24 +35,36 @@ import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest
  *   and [MessageLoggingMode][no.liflig.messaging.MessageLoggingMode], and a default
  *   [BackoffService][no.liflig.messaging.backoff.BackoffService] implementation using the given
  *   [BackoffConfig][no.liflig.messaging.backoff.BackoffConfig]
+ *
+ * @param maxNumberOfMessages The maximum number of messages to receive per [poll]. SQS allows
+ *   values from 1 to 10. Defaults to 10.
  */
 public class SqsQueue(
     private val sqsClient: SqsClient,
     private val queueUrl: String,
     override val observer: QueueObserver,
     private val backoffService: BackoffService,
+    private val maxNumberOfMessages: Int = 10,
 ) : Queue {
+  init {
+    require(maxNumberOfMessages in 1..10) {
+      "maxNumberOfMessages must be between 1 and 10 (SQS limit), got ${maxNumberOfMessages}"
+    }
+  }
+
   public constructor(
       sqsClient: SqsClient,
       queueUrl: String,
       name: String = "queue",
       loggingMode: MessageLoggingMode = MessageLoggingMode.JSON,
       backoffConfig: BackoffConfig = BackoffConfig(),
+      maxNumberOfMessages: Int = 10,
   ) : this(
       sqsClient,
       queueUrl,
       observer = DefaultQueueObserver(queueName = name, queueUrl = queueUrl, logger, loggingMode),
       backoffService = SqsBackoffService(sqsClient, backoffConfig),
+      maxNumberOfMessages = maxNumberOfMessages,
   )
 
   override fun send(
@@ -107,7 +119,7 @@ public class SqsQueue(
             .messageAttributeNames("All")
             .queueUrl(queueUrl)
             .waitTimeSeconds(20)
-            .maxNumberOfMessages(10)
+            .maxNumberOfMessages(maxNumberOfMessages)
             .build()
 
     return sqsClient.receiveMessage(receiveRequest).messages().map { sqsMessage ->
